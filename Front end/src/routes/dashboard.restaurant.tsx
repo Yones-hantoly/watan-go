@@ -1,11 +1,28 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { DashboardShell, StatCard } from "@/components/dashboard-shell";
 import { ChefHat, Clock, TrendingUp } from "lucide-react";
+import { getOrders, updateOrderStatus, type Order } from "@/lib/commerce";
 
 export const Route = createFileRoute("/dashboard/restaurant")({
   component: () => (
     <DashboardShell expectedRole="restaurant">
-      {(user) => (
+      {(user) => <RestaurantDashboard user={user} />}
+    </DashboardShell>
+  ),
+});
+
+function RestaurantDashboard({ user }: { user: { name: string } }) {
+  const [orders, setOrders] = useState<Order[]>([]);
+  const refresh = () => setOrders(getOrders().filter((order) => order.type === "food"));
+  const setStatus = (id: string, status: Order["status"]) => {
+    updateOrderStatus(id, status);
+    refresh();
+  };
+
+  useEffect(refresh, []);
+
+  return (
         <div className="space-y-8">
           <section>
             <h1 className="font-display text-3xl font-bold">لوحة المطعم 🍔</h1>
@@ -20,24 +37,23 @@ export const Route = createFileRoute("/dashboard/restaurant")({
           </section>
 
           <section className="card-elevated p-6">
-            <h2 className="font-display text-xl font-bold">طلبات قيد التحضير</h2>
+            <h2 className="font-display text-xl font-bold">طلبات الطعام الواردة</h2>
             <div className="mt-4 space-y-3">
-              {[
-                { id: "#٢٣٤١", items: "شاورما × ٢، عصير", time: "٥ د", status: "جديد" },
-                { id: "#٢٣٤٢", items: "مشاوي مشكلة، حمص", time: "١٢ د", status: "قيد التحضير" },
-                { id: "#٢٣٤٣", items: "بيتزا خضار", time: "١ د", status: "جديد" },
-              ].map((o) => (
+              {orders.length === 0 ? (
+                <div className="text-sm text-muted-foreground">لا توجد طلبات طعام حالية.</div>
+              ) : orders.map((o) => (
                 <div key={o.id} className="flex items-center justify-between rounded-xl border border-border bg-secondary/30 p-4">
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="font-mono text-sm font-bold text-cyan">{o.id}</span>
-                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${o.status === "جديد" ? "bg-amber/20 text-amber" : "bg-primary/20 text-primary"}`}>{o.status}</span>
+                      <span className="rounded-full bg-primary/20 px-2 py-0.5 text-[10px] font-bold text-primary">{o.status}</span>
                     </div>
-                    <div className="mt-1 text-sm text-muted-foreground">{o.items}</div>
+                    <div className="mt-1 text-sm text-muted-foreground">{o.items.map((item) => `${item.name} × ${item.quantity}`).join("، ")}</div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground"><Clock className="h-3 w-3" />{o.time}</div>
-                    <button className="rounded-lg bg-primary px-3 py-2 text-xs font-bold text-primary-foreground">جاهز</button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button onClick={() => setStatus(o.id, "accepted")} className="rounded-lg bg-primary px-3 py-2 text-xs font-bold text-primary-foreground">قبول</button>
+                    <button onClick={() => setStatus(o.id, "preparing")} className="rounded-lg border border-border bg-secondary px-3 py-2 text-xs font-bold">تحضير</button>
+                    <button onClick={() => setStatus(o.id, "cancelled")} className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs font-bold text-destructive">رفض</button>
                   </div>
                 </div>
               ))}
@@ -60,7 +76,5 @@ export const Route = createFileRoute("/dashboard/restaurant")({
             </div>
           </section>
         </div>
-      )}
-    </DashboardShell>
-  ),
-});
+  );
+}

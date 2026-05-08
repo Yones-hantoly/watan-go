@@ -2,6 +2,7 @@ import { Outlet, Link, createRootRoute, HeadContent, Scripts } from "@tanstack/r
 
 import appCss from "../styles.css?url";
 import { Header, Footer } from "@/components/site-chrome";
+import { Toaster } from "@/components/ui/sonner";
 
 function NotFoundComponent() {
   return (
@@ -73,6 +74,7 @@ function RootComponent() {
         <Outlet />
       </main>
       <Footer />
+      <Toaster dir="rtl" position="top-center" closeButton />
     </div>
   );
 }

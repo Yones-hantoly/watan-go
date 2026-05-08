@@ -94,11 +94,6 @@ function Home() {
                   منصة واحدة لـلتنقل والتوصيل والتسوق.
                 </p>
 
-                <p className="mt-6 max-w-xl text-lg text-muted-foreground md:text-xl leading-relaxed">
-                  وطن جو يجمع التنقل وتوصيل الطعام والتسوق في منظومة لحظية واحدة — خمسة أدوار،
-                  ونظام سلس متكامل.
-                </p>
-
                 <div className="mt-9 flex flex-wrap gap-3">
                   <Link
                     to="/architecture"
@@ -115,9 +110,8 @@ function Home() {
                   </Link>
                 </div>
 
-                <div className="mt-12 grid grid-cols-3 gap-6 max-w-md">
+                <div className="mt-12 grid grid-cols-2 gap-6 max-w-xs">
                   {[
-                    { v: "5", l: "أدوار" },
                     { v: "3", l: "خدمات" },
                     { v: "24/7", l: "لحظي" },
                   ].map((s) => (
@@ -208,9 +202,6 @@ function Home() {
               ثلاث خدمات. <span className="text-gradient">منظومة واحدة.</span>
             </h2>
           </div>
-          <p className="text-muted-foreground max-w-md leading-relaxed">
-            مصممة كنظام خلفي موحد يدعم تجارب أمامية مستقلة لكل دور في الشبكة.
-          </p>
         </div>
 
         <div className="grid gap-5 md:grid-cols-3">
@@ -224,18 +215,6 @@ function Home() {
 
       {/* ROLES */}
       <section className="mx-auto max-w-7xl px-6 py-24">
-        <div className="mb-12 max-w-2xl">
-          <span className="font-mono text-xs uppercase tracking-[0.2em] text-primary">
-            5 أدوار
-          </span>
-          <h2 className="mt-3 font-display text-4xl font-bold md:text-5xl leading-tight">
-            مصممة للجميع.
-          </h2>
-          <p className="mt-3 text-muted-foreground leading-relaxed">
-            كل دور يحصل على واجهة ولوحة تحكم خاصة به، والكل مدعوم بنفس النظام الخلفي الموحد.
-          </p>
-        </div>
-
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           {roles.map((r) => (
             <Link key={r.name} to={r.to} className="card-elevated p-5 group">

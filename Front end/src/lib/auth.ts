@@ -16,12 +16,25 @@ export interface RoleNavLink {
 export interface RegisteredAccount {
   name: string;
   phone: string;
-  password: string;
-  role: PublicRegisterRole;
+  password?: string;
+  passwordHash?: string;
+  passwordSalt?: string;
+  passwordIterations?: number;
+  role: Role;
 }
 
 const AUTH_KEY = "watan_go_auth";
 const ACCOUNTS_KEY = "watan_go_accounts";
+const AUDIT_LOG_KEY = "watan_go_audit_log";
+const PASSWORD_ITERATIONS = 210000;
+const INITIAL_ADMIN_ACCOUNT = {
+  name: "System Administrator",
+  phone: "0599990000",
+  role: "admin" as const,
+  passwordHash: "g_Y0CP-UQ1C72k4GWeFTqs7ft3XC57-zyLsdC_cD5d8",
+  passwordSalt: "pMxnp9qbpw0dbVW2to7AGQ",
+  passwordIterations: PASSWORD_ITERATIONS,
+};
 
 export const ROLES: { value: Role; label: string; emoji: string; route: string; desc: string }[] = [
   { value: "customer",   label: "مستخدم",       emoji: "🙋", route: "/dashboard/customer",   desc: "اطلب طعام، تسوّق، احجز رحلة" },
@@ -80,6 +93,78 @@ export function normalizePhone(phone: string) {
   return phone.replace(/\D/g, "");
 }
 
+function bytesToBase64Url(bytes: Uint8Array) {
+  let binary = "";
+  bytes.forEach((byte) => {
+    binary += String.fromCharCode(byte);
+  });
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function base64UrlToBytes(value: string) {
+  const base64 = value.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(value.length / 4) * 4, "=");
+  const binary = atob(base64);
+  return Uint8Array.from(binary, (char) => char.charCodeAt(0));
+}
+
+function timingSafeEqual(left: string, right: string) {
+  const leftBytes = base64UrlToBytes(left);
+  const rightBytes = base64UrlToBytes(right);
+  if (leftBytes.length !== rightBytes.length) return false;
+
+  let diff = 0;
+  leftBytes.forEach((byte, index) => {
+    diff |= byte ^ rightBytes[index];
+  });
+  return diff === 0;
+}
+
+async function hashPassword(password: string, salt: string, iterations = PASSWORD_ITERATIONS) {
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey("raw", encoder.encode(password), "PBKDF2", false, ["deriveBits"]);
+  const bits = await crypto.subtle.deriveBits(
+    {
+      name: "PBKDF2",
+      hash: "SHA-256",
+      salt: encoder.encode(salt),
+      iterations,
+    },
+    key,
+    256,
+  );
+  return bytesToBase64Url(new Uint8Array(bits));
+}
+
+async function createPasswordRecord(password: string) {
+  const salt = bytesToBase64Url(crypto.getRandomValues(new Uint8Array(16)));
+  return {
+    passwordHash: await hashPassword(password, salt),
+    passwordSalt: salt,
+    passwordIterations: PASSWORD_ITERATIONS,
+  };
+}
+
+function appendAuditLog(event: string, details: Record<string, string>) {
+  if (typeof window === "undefined") return;
+  try {
+    const raw = localStorage.getItem(AUDIT_LOG_KEY);
+    const logs = raw ? (JSON.parse(raw) as Array<Record<string, string>>) : [];
+    localStorage.setItem(
+      AUDIT_LOG_KEY,
+      JSON.stringify([
+        ...logs,
+        {
+          event,
+          timestamp: new Date().toISOString(),
+          ...details,
+        },
+      ]),
+    );
+  } catch {
+    // Audit logging must not block authentication.
+  }
+}
+
 export function getRegisteredAccounts(): RegisteredAccount[] {
   if (typeof window === "undefined") return [];
   try {
@@ -95,20 +180,73 @@ export function saveRegisteredAccounts(accounts: RegisteredAccount[]) {
   localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts));
 }
 
+export function ensureInitialAdminAccount() {
+  if (typeof window === "undefined") return null;
+
+  const accounts = getRegisteredAccounts();
+  const adminExists = accounts.some(
+    (account) =>
+      account.role === "admin" ||
+      normalizePhone(account.phone) === normalizePhone(INITIAL_ADMIN_ACCOUNT.phone),
+  );
+
+  if (adminExists) return null;
+
+  saveRegisteredAccounts([...accounts, INITIAL_ADMIN_ACCOUNT]);
+  appendAuditLog("admin.bootstrap.created", {
+    phone: INITIAL_ADMIN_ACCOUNT.phone,
+    role: INITIAL_ADMIN_ACCOUNT.role,
+  });
+  return INITIAL_ADMIN_ACCOUNT;
+}
+
 export function findRegisteredAccountByPhone(phone: string) {
+  ensureInitialAdminAccount();
   const normalizedPhone = normalizePhone(phone);
   return getRegisteredAccounts().find((account) => normalizePhone(account.phone) === normalizedPhone) ?? null;
 }
 
-export function registerAccount(account: RegisteredAccount) {
+export async function registerAccount(account: { name: string; phone: string; password: string; role: PublicRegisterRole }) {
+  ensureInitialAdminAccount();
   const accounts = getRegisteredAccounts();
   const exists = accounts.some((storedAccount) => normalizePhone(storedAccount.phone) === normalizePhone(account.phone));
   if (exists) {
     return { ok: false as const, message: "رقم الهاتف مستخدم بالفعل" };
   }
 
-  saveRegisteredAccounts([...accounts, account]);
+  const passwordRecord = await createPasswordRecord(account.password);
+  saveRegisteredAccounts([
+    ...accounts,
+    {
+      name: account.name,
+      phone: account.phone,
+      role: account.role,
+      ...passwordRecord,
+    },
+  ]);
   return { ok: true as const };
+}
+
+export async function authenticateAccount(phone: string, password: string) {
+  const account = findRegisteredAccountByPhone(phone);
+  if (!account) {
+    appendAuditLog("auth.login.failed", { phone: normalizePhone(phone), reason: "account_not_found" });
+    return { ok: false as const, reason: "account_not_found" as const };
+  }
+
+  if (account.passwordHash && account.passwordSalt) {
+    const hash = await hashPassword(password, account.passwordSalt, account.passwordIterations ?? PASSWORD_ITERATIONS);
+    if (!timingSafeEqual(hash, account.passwordHash)) {
+      appendAuditLog("auth.login.failed", { phone: normalizePhone(phone), reason: "invalid_password" });
+      return { ok: false as const, reason: "invalid_password" as const };
+    }
+  } else if (account.password !== password) {
+    appendAuditLog("auth.login.failed", { phone: normalizePhone(phone), reason: "invalid_password" });
+    return { ok: false as const, reason: "invalid_password" as const };
+  }
+
+  appendAuditLog("auth.login.success", { phone: normalizePhone(account.phone), role: account.role });
+  return { ok: true as const, account };
 }
 
 export function getDashboardNavLinks(role: Role): RoleNavLink[] {

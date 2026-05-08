@@ -2,8 +2,10 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight, Clock3, Star, Truck, UtensilsCrossed } from "lucide-react";
 import { PageHero, SectionHeading } from "@/components/ui-bits";
 import { getRestaurantBySlug } from "@/lib/mock-restaurants";
+import { requireAuthForProtectedRoute } from "@/lib/route-guards";
 
 export const Route = createFileRoute("/restaurants/$id")({
+  beforeLoad: requireAuthForProtectedRoute,
   head: ({ params }) => {
     const restaurant = getRestaurantBySlug(params.id);
     return {

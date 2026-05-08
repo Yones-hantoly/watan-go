@@ -1,8 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { UtensilsCrossed, Search, ShoppingBag, Clock, ChefHat, Truck, Star, Receipt } from "lucide-react";
 import { PageHero, FeatureCard, SectionHeading } from "@/components/ui-bits";
+import { requireAuthForProtectedRoute } from "@/lib/route-guards";
 
 export const Route = createFileRoute("/food")({
+  beforeLoad: requireAuthForProtectedRoute,
   head: () => ({
     meta: [
       { title: "توصيل الطعام — وطن جو" },
@@ -16,7 +18,7 @@ export const Route = createFileRoute("/food")({
 
 const features = [
   { icon: <Search className="h-6 w-6" />, title: "تصفح ذكي", description: "ابحث حسب المطبخ أو السعر أو التقييم، مع توصيات شخصية حسب طلباتك السابقة.", badge: "01" },
-  { icon: <ShoppingBag className="h-6 w-6" />, title: "سلة مرنة", description: "خصّص طلبك بإضافات وملاحظات، واحفظ المفضلات لطلب أسرع لاحقاً.", badge: "02" },
+  { icon: <ShoppingBag className="h-6 w-6" />, title: "سلة مرنة", description: "خصّص طلبك بإضافات وملاحظات لتجربة طلب أسرع.", badge: "02" },
   { icon: <Clock className="h-6 w-6" />, title: "تتبع المراحل", description: "شاهد طلبك من قبول المطعم إلى التحضير ثم خروج السائق ووصوله إليك.", badge: "03" },
   { icon: <ChefHat className="h-6 w-6" />, title: "قوائم مُحدّثة", description: "المطاعم تدير قوائمها وأسعارها وأوقات عملها بنفسها لحظياً.", badge: "04" },
   { icon: <Receipt className="h-6 w-6" />, title: "دفع متعدد", description: "ادفع نقداً عند الاستلام، أو ببطاقتك، أو من محفظة وطن جو.", badge: "05" },

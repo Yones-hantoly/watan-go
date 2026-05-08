@@ -8,7 +8,7 @@ export function PageHero({
 }: {
   eyebrow: string;
   title: ReactNode;
-  description: string;
+  description?: string;
   icon?: ReactNode;
 }) {
   return (
@@ -29,7 +29,9 @@ export function PageHero({
           <h1 className="font-display text-4xl font-bold leading-[1.15] md:text-6xl">
             {title}
           </h1>
-          <p className="text-lg text-muted-foreground md:text-xl max-w-2xl leading-relaxed">{description}</p>
+          {description && (
+            <p className="text-lg text-muted-foreground md:text-xl max-w-2xl leading-relaxed">{description}</p>
+          )}
         </div>
       </div>
     </section>

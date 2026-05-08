@@ -1,12 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { Clock3, Heart, Search, Star, Store, Truck, UtensilsCrossed } from "lucide-react";
-import { toast } from "sonner";
+import { useState } from "react";
+import { Clock3, Search, Star, Store, Truck, UtensilsCrossed } from "lucide-react";
 import { PageHero, SectionHeading } from "@/components/ui-bits";
-import { getFavoriteRestaurantSlugs, toggleFavoriteRestaurant } from "@/lib/restaurant-favorites";
 import { mockRestaurants, restaurantCategories, type RestaurantCategory } from "@/lib/mock-restaurants";
+import { requireAuthForProtectedRoute } from "@/lib/route-guards";
 
 export const Route = createFileRoute("/restaurants")({
+  beforeLoad: requireAuthForProtectedRoute,
   head: () => ({
     meta: [
       { title: "المطاعم - حسن جو" },
@@ -18,22 +18,10 @@ export const Route = createFileRoute("/restaurants")({
 
 function RestaurantsPage() {
   const [activeCategory, setActiveCategory] = useState<RestaurantCategory>("الكل");
-  const [favoriteSlugs, setFavoriteSlugs] = useState<string[]>([]);
-
-  useEffect(() => {
-    setFavoriteSlugs(getFavoriteRestaurantSlugs());
-  }, []);
-
   const filteredRestaurants =
     activeCategory === "الكل"
       ? mockRestaurants
       : mockRestaurants.filter((restaurant) => restaurant.category === activeCategory);
-
-  const handleToggleFavorite = (slug: string) => {
-    const result = toggleFavoriteRestaurant(slug);
-    setFavoriteSlugs(result.favorites);
-    toast.success(result.active ? "تمت الإضافة إلى المفضلة" : "تمت الإزالة من المفضلة");
-  };
 
   return (
     <>
@@ -41,7 +29,6 @@ function RestaurantsPage() {
         eyebrow="المطاعم"
         icon={<UtensilsCrossed className="h-5 w-5" />}
         title={<>اختر مطعمك <span className="text-gradient">واطلب فورًا.</span></>}
-        description="بيانات المطاعم mock فقط في هذه المرحلة، لكنها منظمة بشكل واضح لتسهيل استبدالها لاحقًا ببيانات backend حقيقية."
       />
 
       <section className="mx-auto max-w-7xl px-6 py-16">
@@ -82,10 +69,7 @@ function RestaurantsPage() {
           </div>
         ) : (
           <div className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-            {filteredRestaurants.map((restaurant) => {
-              const favorite = favoriteSlugs.includes(restaurant.slug);
-
-              return (
+            {filteredRestaurants.map((restaurant) => (
                 <article key={restaurant.id} className="card-elevated p-6">
                   <div className="flex items-start justify-between gap-4">
                     <div>
@@ -132,29 +116,17 @@ function RestaurantsPage() {
                     </div>
                   </div>
 
-                  <div className="mt-6 flex flex-wrap gap-3">
+                  <div className="mt-6">
                     <Link
-                      to="/restaurants/$id"
-                      params={{ id: restaurant.slug }}
+                      to="/menu/$restaurantSlug"
+                      params={{ restaurantSlug: restaurant.slug }}
                       className="cursor-pointer rounded-xl bg-gradient-to-br from-primary to-primary/80 px-5 py-3 text-sm font-semibold text-primary-foreground glow transition-transform duration-200 hover:-translate-y-0.5"
                     >
                       تصفح القائمة
                     </Link>
-                    <button
-                      type="button"
-                      onClick={() => handleToggleFavorite(restaurant.slug)}
-                      className={`inline-flex cursor-pointer items-center gap-2 rounded-xl border px-5 py-3 text-sm font-semibold transition-colors ${
-                        favorite
-                          ? "border-rose-200 bg-rose-500/10 text-rose-600"
-                          : "border-border bg-secondary/50 hover:bg-secondary"
-                      }`}
-                    >
-                      <Heart className={`h-4 w-4 ${favorite ? "fill-current" : ""}`} /> إضافة إلى المفضلة
-                    </button>
                   </div>
                 </article>
-              );
-            })}
+            ))}
           </div>
         )}
 

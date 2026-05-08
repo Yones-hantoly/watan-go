@@ -20,10 +20,12 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as FoodRouteImport } from './routes/food'
 import { Route as DriversRouteImport } from './routes/drivers'
 import { Route as ContactRouteImport } from './routes/contact'
+import { Route as CartRouteImport } from './routes/cart'
 import { Route as ArchitectureRouteImport } from './routes/architecture'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as RestaurantsIdRouteImport } from './routes/restaurants.$id'
+import { Route as MenuRestaurantSlugRouteImport } from './routes/menu.$restaurantSlug'
 import { Route as DashboardShopRouteImport } from './routes/dashboard.shop'
 import { Route as DashboardRestaurantRouteImport } from './routes/dashboard.restaurant'
 import { Route as DashboardDriverRouteImport } from './routes/dashboard.driver'
@@ -85,6 +87,11 @@ const ContactRoute = ContactRouteImport.update({
   path: '/contact',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CartRoute = CartRouteImport.update({
+  id: '/cart',
+  path: '/cart',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ArchitectureRoute = ArchitectureRouteImport.update({
   id: '/architecture',
   path: '/architecture',
@@ -104,6 +111,11 @@ const RestaurantsIdRoute = RestaurantsIdRouteImport.update({
   id: '/$id',
   path: '/$id',
   getParentRoute: () => RestaurantsRoute,
+} as any)
+const MenuRestaurantSlugRoute = MenuRestaurantSlugRouteImport.update({
+  id: '/menu/$restaurantSlug',
+  path: '/menu/$restaurantSlug',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardShopRoute = DashboardShopRouteImport.update({
   id: '/dashboard/shop',
@@ -135,6 +147,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/architecture': typeof ArchitectureRoute
+  '/cart': typeof CartRoute
   '/contact': typeof ContactRoute
   '/drivers': typeof DriversRoute
   '/food': typeof FoodRoute
@@ -151,12 +164,14 @@ export interface FileRoutesByFullPath {
   '/dashboard/driver': typeof DashboardDriverRoute
   '/dashboard/restaurant': typeof DashboardRestaurantRoute
   '/dashboard/shop': typeof DashboardShopRoute
+  '/menu/$restaurantSlug': typeof MenuRestaurantSlugRoute
   '/restaurants/$id': typeof RestaurantsIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/architecture': typeof ArchitectureRoute
+  '/cart': typeof CartRoute
   '/contact': typeof ContactRoute
   '/drivers': typeof DriversRoute
   '/food': typeof FoodRoute
@@ -173,6 +188,7 @@ export interface FileRoutesByTo {
   '/dashboard/driver': typeof DashboardDriverRoute
   '/dashboard/restaurant': typeof DashboardRestaurantRoute
   '/dashboard/shop': typeof DashboardShopRoute
+  '/menu/$restaurantSlug': typeof MenuRestaurantSlugRoute
   '/restaurants/$id': typeof RestaurantsIdRoute
 }
 export interface FileRoutesById {
@@ -180,6 +196,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/architecture': typeof ArchitectureRoute
+  '/cart': typeof CartRoute
   '/contact': typeof ContactRoute
   '/drivers': typeof DriversRoute
   '/food': typeof FoodRoute
@@ -196,6 +213,7 @@ export interface FileRoutesById {
   '/dashboard/driver': typeof DashboardDriverRoute
   '/dashboard/restaurant': typeof DashboardRestaurantRoute
   '/dashboard/shop': typeof DashboardShopRoute
+  '/menu/$restaurantSlug': typeof MenuRestaurantSlugRoute
   '/restaurants/$id': typeof RestaurantsIdRoute
 }
 export interface FileRouteTypes {
@@ -204,6 +222,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/architecture'
+    | '/cart'
     | '/contact'
     | '/drivers'
     | '/food'
@@ -220,12 +239,14 @@ export interface FileRouteTypes {
     | '/dashboard/driver'
     | '/dashboard/restaurant'
     | '/dashboard/shop'
+    | '/menu/$restaurantSlug'
     | '/restaurants/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/admin'
     | '/architecture'
+    | '/cart'
     | '/contact'
     | '/drivers'
     | '/food'
@@ -242,12 +263,14 @@ export interface FileRouteTypes {
     | '/dashboard/driver'
     | '/dashboard/restaurant'
     | '/dashboard/shop'
+    | '/menu/$restaurantSlug'
     | '/restaurants/$id'
   id:
     | '__root__'
     | '/'
     | '/admin'
     | '/architecture'
+    | '/cart'
     | '/contact'
     | '/drivers'
     | '/food'
@@ -264,6 +287,7 @@ export interface FileRouteTypes {
     | '/dashboard/driver'
     | '/dashboard/restaurant'
     | '/dashboard/shop'
+    | '/menu/$restaurantSlug'
     | '/restaurants/$id'
   fileRoutesById: FileRoutesById
 }
@@ -271,6 +295,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
   ArchitectureRoute: typeof ArchitectureRoute
+  CartRoute: typeof CartRoute
   ContactRoute: typeof ContactRoute
   DriversRoute: typeof DriversRoute
   FoodRoute: typeof FoodRoute
@@ -287,6 +312,7 @@ export interface RootRouteChildren {
   DashboardDriverRoute: typeof DashboardDriverRoute
   DashboardRestaurantRoute: typeof DashboardRestaurantRoute
   DashboardShopRoute: typeof DashboardShopRoute
+  MenuRestaurantSlugRoute: typeof MenuRestaurantSlugRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -368,6 +394,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ContactRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/cart': {
+      id: '/cart'
+      path: '/cart'
+      fullPath: '/cart'
+      preLoaderRoute: typeof CartRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/architecture': {
       id: '/architecture'
       path: '/architecture'
@@ -395,6 +428,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/restaurants/$id'
       preLoaderRoute: typeof RestaurantsIdRouteImport
       parentRoute: typeof RestaurantsRoute
+    }
+    '/menu/$restaurantSlug': {
+      id: '/menu/$restaurantSlug'
+      path: '/menu/$restaurantSlug'
+      fullPath: '/menu/$restaurantSlug'
+      preLoaderRoute: typeof MenuRestaurantSlugRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/dashboard/shop': {
       id: '/dashboard/shop'
@@ -450,6 +490,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
   ArchitectureRoute: ArchitectureRoute,
+  CartRoute: CartRoute,
   ContactRoute: ContactRoute,
   DriversRoute: DriversRoute,
   FoodRoute: FoodRoute,
@@ -466,6 +507,7 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardDriverRoute: DashboardDriverRoute,
   DashboardRestaurantRoute: DashboardRestaurantRoute,
   DashboardShopRoute: DashboardShopRoute,
+  MenuRestaurantSlugRoute: MenuRestaurantSlugRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

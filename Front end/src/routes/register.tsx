@@ -76,7 +76,7 @@ function RegisterPage() {
     setLoading(true);
     await new Promise((resolve) => setTimeout(resolve, 900));
 
-    const result = registerAccount({ name: name.trim(), phone, password, role });
+    const result = await registerAccount({ name: name.trim(), phone, password, role });
 
     if (!result.ok) {
       setLoading(false);

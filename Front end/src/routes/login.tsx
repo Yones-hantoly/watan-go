@@ -1,16 +1,17 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Eye, EyeOff, Lock, Phone, Loader2, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import {
-  PUBLIC_REGISTER_ROLES,
-  findRegisteredAccountByPhone,
-  isPublicRegisterRole,
+  ROLES,
+  authenticateAccount,
+  ensureInitialAdminAccount,
   normalizePhone,
   routeForRole,
   setAuth,
-  type PublicRegisterRole,
+  type Role,
 } from "@/lib/auth";
+import { consumeLoginRequiredMessage } from "@/lib/route-guards";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
@@ -28,11 +29,19 @@ function LoginPage() {
   const navigate = useNavigate();
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<PublicRegisterRole>("customer");
+  const [role, setRole] = useState<Role>("customer");
   const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
   const [shake, setShake] = useState(false);
   const [errors, setErrors] = useState<{ phone?: string; password?: string }>({});
+
+  useEffect(() => {
+    ensureInitialAdminAccount();
+    const loginRequiredMessage = consumeLoginRequiredMessage();
+    if (loginRequiredMessage) {
+      toast.info(loginRequiredMessage);
+    }
+  }, []);
 
   const formatPhone = (value: string) => {
     const digits = value.replace(/\D/g, "").slice(0, 10);
@@ -58,17 +67,12 @@ function LoginPage() {
       return;
     }
 
-    if (!isPublicRegisterRole(role)) {
-      toast.error("نوع الحساب غير متاح من شاشة الدخول العامة");
-      return;
-    }
-
     setLoading(true);
     await new Promise((resolve) => setTimeout(resolve, 700));
 
-    const account = findRegisteredAccountByPhone(phone);
+    const result = await authenticateAccount(phone, password);
 
-    if (!account) {
+    if (!result.ok && result.reason === "account_not_found") {
       setLoading(false);
       setShake(true);
       setErrors({ phone: "رقم الهاتف غير مسجل" });
@@ -77,7 +81,7 @@ function LoginPage() {
       return;
     }
 
-    if (account.password !== password) {
+    if (!result.ok && result.reason === "invalid_password") {
       setLoading(false);
       setShake(true);
       setErrors({ password: "كلمة المرور غير صحيحة" });
@@ -85,6 +89,8 @@ function LoginPage() {
       toast.error("كلمة المرور غير صحيحة");
       return;
     }
+
+    const { account } = result;
 
     if (account.role !== role) {
       setLoading(false);
@@ -145,7 +151,7 @@ function LoginPage() {
             <div>
               <label className="mb-2 block text-sm font-semibold text-slate-700">نوع الحساب</label>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-2">
-                {PUBLIC_REGISTER_ROLES.map((item) => {
+                {ROLES.map((item) => {
                   const active = role === item.value;
                   return (
                     <button

@@ -1,11 +1,25 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { DashboardShell, StatCard } from "@/components/dashboard-shell";
-import { Car, UtensilsCrossed, Store, MapPin, Clock, Heart } from "lucide-react";
+import { Car, UtensilsCrossed, Store, MapPin, Clock } from "lucide-react";
+import { getOrders, type Order } from "@/lib/commerce";
 
 export const Route = createFileRoute("/dashboard/customer")({
   component: () => (
     <DashboardShell expectedRole="customer">
-      {(user) => (
+      {(user) => <CustomerDashboard user={user} />}
+    </DashboardShell>
+  ),
+});
+
+function CustomerDashboard({ user }: { user: { name: string; phone: string } }) {
+  const [orders, setOrders] = useState<Order[]>([]);
+
+  useEffect(() => {
+    setOrders(getOrders().filter((order) => order.user.phone === user.phone));
+  }, [user.phone]);
+
+  return (
         <div className="space-y-8">
           <section>
             <h1 className="font-display text-3xl font-bold">أهلاً، {user.name} 👋</h1>
@@ -18,25 +32,22 @@ export const Route = createFileRoute("/dashboard/customer")({
             <ServiceCard to="/ride-request" icon={<Car />} title="احجز رحلة" desc="سيارة في دقائق" color="text-primary" />
           </section>
 
-          <section className="grid gap-4 md:grid-cols-3">
+          <section className="grid gap-4 md:grid-cols-2">
             <StatCard label="طلبات هذا الشهر" value="١٢" hint="↑ ٣ عن الشهر الماضي" accent="primary" />
             <StatCard label="نقاط المكافآت" value="٤٨٠" hint="رصيد قابل للاستبدال" accent="amber" />
-            <StatCard label="مفضلاتي" value="٧" hint="مطاعم ومحلات" accent="cyan" />
           </section>
 
           <section className="card-elevated p-6">
-            <h2 className="font-display text-xl font-bold">آخر الطلبات</h2>
+            <h2 className="font-display text-xl font-bold">طلباتي</h2>
             <div className="mt-4 divide-y divide-border/40">
-              {[
-                { name: "مطعم البيت الدمشقي", status: "تم التوصيل", time: "أمس" },
-                { name: "صيدلية النور", status: "تم التوصيل", time: "قبل ٣ أيام" },
-                { name: "رحلة إلى الجامعة", status: "مكتملة", time: "قبل أسبوع" },
-              ].map((o) => (
-                <div key={o.name} className="flex items-center justify-between py-3">
+              {orders.length === 0 ? (
+                <div className="py-4 text-sm text-muted-foreground">لا توجد طلبات بعد.</div>
+              ) : orders.map((o) => (
+                <div key={o.id} className="flex items-center justify-between py-3">
                   <div>
-                    <div className="font-medium">{o.name}</div>
+                    <div className="font-medium">{o.vendorName}</div>
                     <div className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
-                      <Clock className="h-3 w-3" /> {o.time}
+                      <Clock className="h-3 w-3" /> {o.id} · {o.total} شيكل
                     </div>
                   </div>
                   <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">{o.status}</span>
@@ -45,21 +56,15 @@ export const Route = createFileRoute("/dashboard/customer")({
             </div>
           </section>
 
-          <section className="grid gap-4 sm:grid-cols-2">
+          <section>
             <div className="card-elevated p-5">
               <div className="flex items-center gap-2 text-cyan"><MapPin className="h-4 w-4" /><span className="text-sm font-semibold">عنوان التوصيل الرئيسي</span></div>
               <p className="mt-2 text-sm text-muted-foreground">شارع الجامعة، الطابق الثالث</p>
             </div>
-            <div className="card-elevated p-5">
-              <div className="flex items-center gap-2 text-amber"><Heart className="h-4 w-4" /><span className="text-sm font-semibold">مطعمك المفضل</span></div>
-              <p className="mt-2 text-sm text-muted-foreground">مطعم البيت الدمشقي · ٤.٨ ⭐</p>
-            </div>
           </section>
         </div>
-      )}
-    </DashboardShell>
-  ),
-});
+  );
+}
 
 function ServiceCard({ to, icon, title, desc, color }: { to: string; icon: React.ReactNode; title: string; desc: string; color: string }) {
   return (

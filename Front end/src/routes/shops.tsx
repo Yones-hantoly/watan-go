@@ -1,8 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Store, Package, ShoppingCart, Truck, Tag, Boxes, CreditCard, Search } from "lucide-react";
 import { PageHero, FeatureCard, SectionHeading } from "@/components/ui-bits";
+import { showCartItemAddedToast } from "@/lib/cart-notifications";
+import { addCartItem, groceryItems } from "@/lib/commerce";
+import { requireAuthForProtectedRoute } from "@/lib/route-guards";
 
 export const Route = createFileRoute("/shops")({
+  beforeLoad: requireAuthForProtectedRoute,
   head: () => ({
     meta: [
       { title: "طلبات المتاجر — وطن جو" },
@@ -33,6 +37,20 @@ const categories = [
 ];
 
 function ShopsPage() {
+  const addGroceryToCart = (item: (typeof groceryItems)[number]) => {
+    addCartItem({
+      id: item.id,
+      type: "grocery",
+      name: item.name,
+      description: item.description,
+      price: item.price,
+      image: item.image,
+      vendorId: item.storeId,
+      vendorName: item.storeName,
+    });
+    showCartItemAddedToast();
+  };
+
   return (
     <>
       <PageHero
@@ -62,6 +80,40 @@ function ShopsPage() {
                 <p className="text-xs text-muted-foreground mt-0.5">{c.count}</p>
               </div>
             </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-7xl px-6 py-20">
+        <SectionHeading eyebrow="المنتجات" title="منتجات متاحة للطلب" />
+        <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+          {groceryItems.map((item) => (
+            <article key={item.id} className="card-elevated p-6">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="text-xs font-semibold text-primary">{item.category}</div>
+                  <h3 className="mt-2 font-display text-lg font-bold">{item.name}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{item.description}</p>
+                </div>
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-secondary text-2xl">
+                  <span aria-hidden>{item.image}</span>
+                </div>
+              </div>
+              <div className="mt-5 flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-xs text-muted-foreground">{item.storeName}</div>
+                  <div className="font-display text-xl font-bold text-primary">{item.price} شيكل</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => addGroceryToCart(item)}
+                  className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-gradient-to-br from-primary to-primary/80 px-4 py-2.5 text-sm font-semibold text-primary-foreground glow transition-transform duration-200 hover:-translate-y-0.5"
+                >
+                  <ShoppingCart className="h-4 w-4" />
+                  إضافة للسلة
+                </button>
+              </div>
+            </article>
           ))}
         </div>
       </section>

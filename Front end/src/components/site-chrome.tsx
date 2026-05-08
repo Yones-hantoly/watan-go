@@ -1,14 +1,18 @@
 import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Car, UtensilsCrossed, Store } from "lucide-react";
+import { Car, ShoppingCart, Store, UtensilsCrossed } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { getAuth, getDashboardNavLinks, type AuthUser } from "@/lib/auth";
+import { getCartCount, subscribeToCart } from "@/lib/commerce";
 
 export function Header() {
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [cartCount, setCartCount] = useState(0);
 
   useEffect(() => {
     setUser(getAuth());
+    setCartCount(getCartCount());
+    return subscribeToCart(() => setCartCount(getCartCount()));
   }, []);
 
   const publicLinks = [
@@ -19,12 +23,18 @@ export function Header() {
     { to: "/register", label: "تسجيل" },
   ] as const;
 
+  const dashboardLink = user
+    ? {
+        to:
+          user.role === "admin"
+            ? "/dashboard/admin"
+            : `/dashboard/${user.role === "customer" ? "customer" : user.role}`,
+        label: "التسجيل",
+      }
+    : null;
+
   const authenticatedLinks = user
-    ? [
-        { to: "/", label: "الرئيسية" },
-        { to: user.role === "admin" ? "/dashboard/admin" : `/dashboard/${user.role === "customer" ? "customer" : user.role}`, label: "لوحتي" },
-        ...getDashboardNavLinks(user.role),
-      ]
+    ? [{ to: "/", label: "الرئيسية" }, ...getDashboardNavLinks(user.role)]
     : publicLinks;
 
   return (
@@ -56,6 +66,30 @@ export function Header() {
         </nav>
 
         <div className="flex items-center gap-3">
+          {user ? (
+            <Link
+              to="/cart"
+              className="relative rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              activeProps={{ className: "rounded-lg bg-secondary px-3 py-2 text-sm font-medium text-foreground" }}
+              aria-label="السلة"
+            >
+              <ShoppingCart className="h-4 w-4" />
+              {cartCount > 0 ? (
+                <span className="absolute -left-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+                  {cartCount}
+                </span>
+              ) : null}
+            </Link>
+          ) : null}
+          {dashboardLink ? (
+            <Link
+              to={dashboardLink.to}
+              className="rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              activeProps={{ className: "rounded-lg bg-secondary px-3 py-2 text-sm font-medium text-foreground" }}
+            >
+              {dashboardLink.label}
+            </Link>
+          ) : null}
           <ThemeToggle />
           <div className="hidden items-center gap-1.5 md:flex">
             <span className="flex h-2 w-2 animate-pulse rounded-full bg-cyan" />

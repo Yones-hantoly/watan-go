@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Banknote, Clock3, Headphones, ListChecks, PackageCheck, Star, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 import { type AuthUser } from "@/lib/auth";
+import { getOrders, updateDriverStatus, updateOrderStatus, type Order as CommerceOrder } from "@/lib/commerce";
 import {
   mockActivity,
   mockChatMessages,
@@ -39,6 +40,7 @@ export function DriverDashboard({ user, onLogout }: DriverDashboardProps) {
   const [activeView, setActiveView] = useState<DriverView>("dashboard");
   const [driverStatus, setDriverStatus] = useState<DriverStatus>("online");
   const [orders, setOrders] = useState(mockOrders);
+  const [deliveryOrders, setDeliveryOrders] = useState<CommerceOrder[]>(() => getOrders().filter((order) => order.status !== "delivered" && order.status !== "cancelled"));
   const [drawer, setDrawer] = useState<DrawerKind>(null);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
@@ -59,6 +61,14 @@ export function DriverDashboard({ user, onLogout }: DriverDashboardProps) {
 
   const updateOrder = (orderId: string, status: Order["status"], message: string) => {
     setOrders((current) => current.map((order) => (order.id === orderId ? { ...order, status } : order)));
+    toast.success(message);
+  };
+
+  const updateDeliveryOrder = (orderId: string, driverStatus: CommerceOrder["driverStatus"], message: string) => {
+    updateDriverStatus(orderId, driverStatus);
+    if (driverStatus === "accepted") updateOrderStatus(orderId, "on_the_way");
+    if (driverStatus === "delivered") updateOrderStatus(orderId, "delivered");
+    setDeliveryOrders(getOrders().filter((order) => order.status !== "delivered" && order.status !== "cancelled"));
     toast.success(message);
   };
 
@@ -98,6 +108,9 @@ export function DriverDashboard({ user, onLogout }: DriverDashboardProps) {
                     driverStatus={driverStatus}
                     onOpenDrawer={setDrawer}
                     onGoOrders={() => setActiveView("orders")}
+                    deliveryOrders={deliveryOrders}
+                    onAcceptDelivery={(id) => updateDeliveryOrder(id, "accepted", "تم قبول مهمة التوصيل")}
+                    onCompleteDelivery={(id) => updateDeliveryOrder(id, "delivered", "تم تسليم الطلب")}
                   />
                 )}
                 {activeView === "orders" && (
@@ -140,6 +153,9 @@ function DashboardHome({
   driverStatus,
   onOpenDrawer,
   onGoOrders,
+  deliveryOrders,
+  onAcceptDelivery,
+  onCompleteDelivery,
 }: {
   completedTrips: number;
   totalEarnings: number;
@@ -147,6 +163,9 @@ function DashboardHome({
   driverStatus: DriverStatus;
   onOpenDrawer: (drawer: DrawerKind) => void;
   onGoOrders: () => void;
+  deliveryOrders: CommerceOrder[];
+  onAcceptDelivery: (id: string) => void;
+  onCompleteDelivery: (id: string) => void;
 }) {
   return (
     <div className="space-y-6">
@@ -218,6 +237,29 @@ function DashboardHome({
               </div>
             ))}
           </div>
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-white/10 bg-surface/85 p-5">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h3 className="font-display text-lg font-bold">مهام توصيل من الطلبات الجديدة</h3>
+          <span className="rounded-full bg-cyan/10 px-3 py-1 text-xs font-bold text-cyan">{deliveryOrders.length}</span>
+        </div>
+        <div className="space-y-3">
+          {deliveryOrders.length === 0 ? (
+            <div className="text-sm text-muted-foreground">لا توجد مهام توصيل حالية.</div>
+          ) : deliveryOrders.map((order) => (
+            <div key={order.id} className="flex flex-col gap-3 rounded-2xl border border-border bg-secondary/20 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="font-bold">{order.vendorName}</p>
+                <p className="mt-1 text-sm text-muted-foreground">{order.deliveryAddress} · {order.total} شيكل</p>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => onAcceptDelivery(order.id)} className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground">قبول</button>
+                <button onClick={() => onCompleteDelivery(order.id)} className="rounded-xl border border-border bg-secondary/50 px-4 py-2 text-xs font-bold">تم التسليم</button>
+              </div>
+            </div>
+          ))}
         </div>
       </section>
     </div>

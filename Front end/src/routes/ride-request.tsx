@@ -1,8 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Car, Clock3, MapPin, Navigation, Wallet } from "lucide-react";
 import { PageHero, SectionHeading } from "@/components/ui-bits";
+import { requireAuthForProtectedRoute } from "@/lib/route-guards";
 
 export const Route = createFileRoute("/ride-request")({
+  beforeLoad: requireAuthForProtectedRoute,
   head: () => ({
     meta: [
       { title: "طلب رحلة - حسن جو" },
