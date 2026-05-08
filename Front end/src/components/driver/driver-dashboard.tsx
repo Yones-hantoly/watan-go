@@ -1,9 +1,13 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Banknote, Clock3, Headphones, ListChecks, PackageCheck, Star, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 import { type AuthUser } from "@/lib/auth";
 import { getOrders, updateDriverStatus, updateOrderStatus, type Order as CommerceOrder } from "@/lib/commerce";
+import {
+  getRideOrders, subscribeToRideOrders, updateRideStatus,
+  type RideOrder, RIDE_STATUS_LABELS, RIDE_STATUS_COLORS,
+} from "@/lib/ride-orders";
 import {
   mockActivity,
   mockChatMessages,
@@ -40,7 +44,10 @@ export function DriverDashboard({ user, onLogout }: DriverDashboardProps) {
   const [activeView, setActiveView] = useState<DriverView>("dashboard");
   const [driverStatus, setDriverStatus] = useState<DriverStatus>("online");
   const [orders, setOrders] = useState(mockOrders);
-  const [deliveryOrders, setDeliveryOrders] = useState<CommerceOrder[]>(() => getOrders().filter((order) => order.status !== "delivered" && order.status !== "cancelled"));
+  const [deliveryOrders, setDeliveryOrders] = useState<CommerceOrder[]>(() =>
+    getOrders().filter((o) => o.status !== "delivered" && o.status !== "cancelled"),
+  );
+  const [rideOrders, setRideOrders] = useState<RideOrder[]>([]);
   const [drawer, setDrawer] = useState<DrawerKind>(null);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
@@ -49,28 +56,40 @@ export function DriverDashboard({ user, onLogout }: DriverDashboardProps) {
     return !document.documentElement.classList.contains("light");
   });
 
-  const completedTrips = mockTrips.filter((trip) => trip.status === "completed").length;
-  const totalEarnings = mockEarnings.reduce((sum, item) => sum + item.netProfit, 0);
-  const averageRating = mockRatings.reduce((sum, item) => sum + item.rating, 0) / mockRatings.length;
-  const activeOrder = useMemo(() => orders.find((order) => order.status === "active"), [orders]);
+  useEffect(() => {
+    const load = () =>
+      setRideOrders(
+        getRideOrders().filter(
+          (o) => o.status === "pending" || o.status === "accepted" || o.status === "driver_assigned" || o.status === "on_the_way",
+        ),
+      );
+    load();
+    return subscribeToRideOrders(load);
+  }, []);
 
-  const openOrder = (order: Order) => {
-    setSelectedOrder(order);
-    setDrawer("order");
-  };
+  const completedTrips = mockTrips.filter((t) => t.status === "completed").length;
+  const totalEarnings = mockEarnings.reduce((s, i) => s + i.netProfit, 0);
+  const averageRating = mockRatings.reduce((s, i) => s + i.rating, 0) / mockRatings.length;
+  const activeOrder = useMemo(() => orders.find((o) => o.status === "active"), [orders]);
+
+  const openOrder = (order: Order) => { setSelectedOrder(order); setDrawer("order"); };
 
   const updateOrder = (orderId: string, status: Order["status"], message: string) => {
-    setOrders((current) => current.map((order) => (order.id === orderId ? { ...order, status } : order)));
+    setOrders((cur) => cur.map((o) => (o.id === orderId ? { ...o, status } : o)));
     toast.success(message);
   };
 
-  const updateDeliveryOrder = (orderId: string, driverStatus: CommerceOrder["driverStatus"], message: string) => {
-    updateDriverStatus(orderId, driverStatus);
-    if (driverStatus === "accepted") updateOrderStatus(orderId, "on_the_way");
-    if (driverStatus === "delivered") updateOrderStatus(orderId, "delivered");
-    setDeliveryOrders(getOrders().filter((order) => order.status !== "delivered" && order.status !== "cancelled"));
+  const updateDeliveryOrder = (orderId: string, ds: CommerceOrder["driverStatus"], message: string) => {
+    updateDriverStatus(orderId, ds);
+    if (ds === "accepted") updateOrderStatus(orderId, "on_the_way");
+    if (ds === "delivered") updateOrderStatus(orderId, "delivered");
+    setDeliveryOrders(getOrders().filter((o) => o.status !== "delivered" && o.status !== "cancelled"));
     toast.success(message);
   };
+
+  const handleAcceptRide  = (id: string) => { updateRideStatus(id, "accepted");  toast.success("تم قبول الرحلة"); };
+  const handleRejectRide  = (id: string) => { updateRideStatus(id, "cancelled"); toast.success("تم رفض الرحلة"); };
+  const handleCompleteRide = (id: string) => { updateRideStatus(id, "completed"); toast.success("تمت الرحلة بنجاح"); };
 
   const toggleTheme = () => {
     if (typeof document === "undefined") return;
@@ -84,10 +103,7 @@ export function DriverDashboard({ user, onLogout }: DriverDashboardProps) {
       <div className="flex min-h-screen flex-col lg:flex-row">
         <SidebarNavigation
           activeView={activeView}
-          onChange={(view) => {
-            setActiveView(view);
-            if (view === "support") setChatOpen(true);
-          }}
+          onChange={(view) => { setActiveView(view); if (view === "support") setChatOpen(true); }}
         />
         <div className="min-w-0 flex-1">
           <DriverHeader user={user} status={driverStatus} isDark={isDark} onLogout={onLogout} onToggleTheme={toggleTheme} />
@@ -111,6 +127,10 @@ export function DriverDashboard({ user, onLogout }: DriverDashboardProps) {
                     deliveryOrders={deliveryOrders}
                     onAcceptDelivery={(id) => updateDeliveryOrder(id, "accepted", "تم قبول مهمة التوصيل")}
                     onCompleteDelivery={(id) => updateDeliveryOrder(id, "delivered", "تم تسليم الطلب")}
+                    rideOrders={rideOrders}
+                    onAcceptRide={handleAcceptRide}
+                    onRejectRide={handleRejectRide}
+                    onCompleteRide={handleCompleteRide}
                   />
                 )}
                 {activeView === "orders" && (
@@ -135,37 +155,38 @@ export function DriverDashboard({ user, onLogout }: DriverDashboardProps) {
       </div>
 
       <DetailsDrawer isOpen={drawer !== null} onClose={() => setDrawer(null)} title={drawerTitle(drawer)}>
-        {drawer === "trips" && <TripsDetails trips={mockTrips} />}
+        {drawer === "trips"    && <TripsDetails trips={mockTrips} />}
         {drawer === "earnings" && <EarningsDetails earnings={mockEarnings} />}
-        {drawer === "rating" && <RatingDetails ratings={mockRatings} averageRating={averageRating} />}
-        {drawer === "hours" && <WorkingHoursDetails startTime={new Date("2026-04-29T08:00:00")} breakTime={25} status={driverStatus} activity={mockActivity} />}
-        {drawer === "order" && selectedOrder && <OrderDetails order={selectedOrder} />}
+        {drawer === "rating"   && <RatingDetails ratings={mockRatings} averageRating={averageRating} />}
+        {drawer === "hours"    && <WorkingHoursDetails startTime={new Date("2026-04-29T08:00:00")} breakTime={25} status={driverStatus} activity={mockActivity} />}
+        {drawer === "order"    && selectedOrder && <OrderDetails order={selectedOrder} />}
       </DetailsDrawer>
       <ChatWidget initialMessages={mockChatMessages} forceOpen={chatOpen} onOpenChange={setChatOpen} />
     </div>
   );
 }
 
+// ── DashboardHome ─────────────────────────────────────────────────────────────
+
 function DashboardHome({
-  completedTrips,
-  totalEarnings,
-  averageRating,
-  driverStatus,
-  onOpenDrawer,
-  onGoOrders,
-  deliveryOrders,
-  onAcceptDelivery,
-  onCompleteDelivery,
+  completedTrips, totalEarnings, averageRating, driverStatus,
+  onOpenDrawer, onGoOrders,
+  deliveryOrders, onAcceptDelivery, onCompleteDelivery,
+  rideOrders, onAcceptRide, onRejectRide, onCompleteRide,
 }: {
   completedTrips: number;
   totalEarnings: number;
   averageRating: number;
   driverStatus: DriverStatus;
-  onOpenDrawer: (drawer: DrawerKind) => void;
+  onOpenDrawer: (d: DrawerKind) => void;
   onGoOrders: () => void;
   deliveryOrders: CommerceOrder[];
   onAcceptDelivery: (id: string) => void;
   onCompleteDelivery: (id: string) => void;
+  rideOrders: RideOrder[];
+  onAcceptRide: (id: string) => void;
+  onRejectRide: (id: string) => void;
+  onCompleteRide: (id: string) => void;
 }) {
   return (
     <div className="space-y-6">
@@ -176,21 +197,19 @@ function DashboardHome({
             <h2 className="mt-2 font-display text-3xl font-bold sm:text-4xl">جاهز لاستلام طلبات اليوم؟</h2>
             <p className="mt-3 max-w-2xl text-sm leading-7 text-muted-foreground">تابع الرحلات والأرباح والتقييمات والدعم المباشر داخل تجربة عربية RTL مصممة لسائق يعمل بسرعة ووضوح.</p>
             <div className="mt-5 flex flex-wrap gap-2">
-              <button onClick={onGoOrders} className="rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground transition hover:bg-primary/90">
-                عرض الطلبات
-              </button>
-              <button onClick={() => onOpenDrawer("hours")} className="rounded-xl border border-cyan/30 bg-cyan/10 px-4 py-2.5 text-sm font-bold text-cyan transition hover:border-cyan/60">
-                حالة المناوبة
-              </button>
+              <button onClick={onGoOrders} className="rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground transition hover:bg-primary/90">عرض الطلبات</button>
+              <button onClick={() => onOpenDrawer("hours")} className="rounded-xl border border-cyan/30 bg-cyan/10 px-4 py-2.5 text-sm font-bold text-cyan transition hover:border-cyan/60">حالة المناوبة</button>
             </div>
           </div>
           <div className="rounded-2xl border border-white/10 bg-background/45 p-4 backdrop-blur">
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">حالة العمل</span>
-              <span className="rounded-full bg-cyan/15 px-3 py-1 text-xs font-bold text-cyan">{driverStatus === "online" ? "متصل" : driverStatus === "busy" ? "مشغول" : "غير متصل"}</span>
+              <span className="rounded-full bg-cyan/15 px-3 py-1 text-xs font-bold text-cyan">
+                {driverStatus === "online" ? "متصل" : driverStatus === "busy" ? "مشغول" : "غير متصل"}
+              </span>
             </div>
             <div className="mt-5 grid grid-cols-2 gap-3">
-              <MiniDashboardMetric label="طلبات جديدة" value="1" />
+              <MiniDashboardMetric label="طلبات رحلات" value={String(rideOrders.length)} />
               <MiniDashboardMetric label="طلب نشط" value="1" />
               <MiniDashboardMetric label="تنبيهات" value={mockNotifications.length.toString()} />
               <MiniDashboardMetric label="قبول الطلبات" value="92%" />
@@ -204,6 +223,47 @@ function DashboardHome({
         <StatsCard title="أرباح اليوم" value={`${totalEarnings.toFixed(0)} شيكل`} hint="بعد خصم عمولة المنصة" icon={Banknote} tone="amber" onClick={() => onOpenDrawer("earnings")} />
         <StatsCard title="التقييم" value={averageRating.toFixed(1)} hint={`${mockRatings.length} تقييم حديث`} icon={Star} tone="cyan" onClick={() => onOpenDrawer("rating")} />
         <StatsCard title="ساعات العمل" value="6.2" hint="تشمل 25 دقيقة استراحة" icon={Clock3} tone="primary" onClick={() => onOpenDrawer("hours")} />
+      </section>
+
+      {/* ── Ride requests ── */}
+      <section className="rounded-2xl border border-white/10 bg-surface/85 p-5">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h3 className="font-display text-lg font-bold">طلبات رحلات جديدة</h3>
+          <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary">{rideOrders.length}</span>
+        </div>
+        <div className="space-y-3">
+          {rideOrders.length === 0 ? (
+            <div className="text-sm text-muted-foreground">لا توجد طلبات رحلات حالياً.</div>
+          ) : rideOrders.map((r) => (
+            <div key={r.id} className="rounded-2xl border border-border bg-secondary/20 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 space-y-1">
+                  <div className="text-xs text-muted-foreground">{r.user.name} · {r.id}</div>
+                  <div className="text-sm font-semibold">{r.pickup} ← {r.destination}</div>
+                  <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                    {r.distanceKm != null && <span>{r.distanceKm.toFixed(1)} كم</span>}
+                    {r.durationLabel && <span>{r.durationLabel}</span>}
+                    {r.price != null && <span className="font-bold text-primary">{r.price} شيكل</span>}
+                  </div>
+                </div>
+                <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold ${RIDE_STATUS_COLORS[r.status]}`}>
+                  {RIDE_STATUS_LABELS[r.status]}
+                </span>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {r.status === "pending" && (
+                  <>
+                    <button onClick={() => onAcceptRide(r.id)} className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground">قبول</button>
+                    <button onClick={() => onRejectRide(r.id)} className="rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-2 text-xs font-bold text-destructive">رفض</button>
+                  </>
+                )}
+                {(r.status === "accepted" || r.status === "driver_assigned" || r.status === "on_the_way") && (
+                  <button onClick={() => onCompleteRide(r.id)} className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 text-xs font-bold text-emerald-500">إتمام الرحلة</button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
       </section>
 
       <section className="grid gap-6 xl:grid-cols-[1fr_0.8fr]">
@@ -231,15 +291,14 @@ function DashboardHome({
             <h3 className="font-display text-lg font-bold">تنبيهات اليوم</h3>
           </div>
           <div className="space-y-3">
-            {mockNotifications.map((notification) => (
-              <div key={notification} className="rounded-xl border border-border bg-secondary/20 p-3 text-sm text-muted-foreground">
-                {notification}
-              </div>
+            {mockNotifications.map((n) => (
+              <div key={n} className="rounded-xl border border-border bg-secondary/20 p-3 text-sm text-muted-foreground">{n}</div>
             ))}
           </div>
         </div>
       </section>
 
+      {/* ── Delivery tasks ── */}
       <section className="rounded-2xl border border-white/10 bg-surface/85 p-5">
         <div className="mb-4 flex items-center justify-between gap-3">
           <h3 className="font-display text-lg font-bold">مهام توصيل من الطلبات الجديدة</h3>
@@ -272,9 +331,7 @@ function SupportPanel({ onOpenChat }: { onOpenChat: () => void }) {
       <Headphones className="mx-auto h-14 w-14 text-cyan" />
       <h2 className="mt-4 font-display text-2xl font-bold">الدعم المباشر</h2>
       <p className="mx-auto mt-2 max-w-lg text-sm leading-7 text-muted-foreground">تواصل مع فريق Watan Go لمشاكل العناوين، الدفع، الطلبات النشطة أو أي حالة طارئة أثناء التوصيل.</p>
-      <button onClick={onOpenChat} className="mt-5 rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-primary-foreground transition hover:bg-primary/90">
-        فتح المحادثة
-      </button>
+      <button onClick={onOpenChat} className="mt-5 rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-primary-foreground transition hover:bg-primary/90">فتح المحادثة</button>
     </div>
   );
 }
@@ -299,10 +356,10 @@ function MiniDashboardMetric({ label, value }: { label: string; value: string })
 }
 
 function drawerTitle(drawer: DrawerKind) {
-  if (drawer === "trips") return "تفاصيل رحلات اليوم";
+  if (drawer === "trips")    return "تفاصيل رحلات اليوم";
   if (drawer === "earnings") return "تفاصيل أرباح اليوم";
-  if (drawer === "rating") return "تفاصيل التقييمات";
-  if (drawer === "hours") return "تفاصيل ساعات العمل";
-  if (drawer === "order") return "تفاصيل الطلب";
+  if (drawer === "rating")   return "تفاصيل التقييمات";
+  if (drawer === "hours")    return "تفاصيل ساعات العمل";
+  if (drawer === "order")    return "تفاصيل الطلب";
   return "";
 }

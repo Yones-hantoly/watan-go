@@ -1,8 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { DashboardShell, StatCard } from "@/components/dashboard-shell";
-import { Car, UtensilsCrossed, Store, MapPin, Clock } from "lucide-react";
+import { Car, UtensilsCrossed, Store, MapPin, Clock, Navigation } from "lucide-react";
 import { getOrders, type Order } from "@/lib/commerce";
+import { getRideOrders, subscribeToRideOrders, type RideOrder, RIDE_STATUS_LABELS, RIDE_STATUS_COLORS } from "@/lib/ride-orders";
 
 export const Route = createFileRoute("/dashboard/customer")({
   component: () => (
@@ -14,9 +15,15 @@ export const Route = createFileRoute("/dashboard/customer")({
 
 function CustomerDashboard({ user }: { user: { name: string; phone: string } }) {
   const [orders, setOrders] = useState<Order[]>([]);
+  const [rideOrders, setRideOrders] = useState<RideOrder[]>([]);
 
   useEffect(() => {
-    setOrders(getOrders().filter((order) => order.user.phone === user.phone));
+    const load = () => {
+      setOrders(getOrders().filter((o) => o.user.phone === user.phone));
+      setRideOrders(getRideOrders().filter((o) => o.user.phone === user.phone));
+    };
+    load();
+    return subscribeToRideOrders(load);
   }, [user.phone]);
 
   return (
@@ -51,6 +58,40 @@ function CustomerDashboard({ user }: { user: { name: string; phone: string } }) 
                     </div>
                   </div>
                   <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">{o.status}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* Ride orders */}
+          <section className="card-elevated p-6">
+            <h2 className="font-display text-xl font-bold">رحلاتي</h2>
+            <div className="mt-4 divide-y divide-border/40">
+              {rideOrders.length === 0 ? (
+                <div className="py-4 text-sm text-muted-foreground">لا توجد رحلات بعد.</div>
+              ) : rideOrders.map((r) => (
+                <div key={r.id} className="py-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 text-sm font-semibold">
+                        <Navigation className="h-3.5 w-3.5 shrink-0 text-cyan" />
+                        <span className="truncate">{r.pickup}</span>
+                      </div>
+                      <div className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
+                        <MapPin className="h-3.5 w-3.5 shrink-0 text-primary" />
+                        <span className="truncate">{r.destination}</span>
+                      </div>
+                      <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                        <span>{r.id}</span>
+                        {r.distanceKm != null && <span>{r.distanceKm.toFixed(1)} كم</span>}
+                        {r.price != null && <span className="font-semibold text-primary">{r.price} شيكل</span>}
+                        {r.driverName && <span>السائق: {r.driverName}</span>}
+                      </div>
+                    </div>
+                    <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${RIDE_STATUS_COLORS[r.status]}`}>
+                      {RIDE_STATUS_LABELS[r.status]}
+                    </span>
+                  </div>
                 </div>
               ))}
             </div>
