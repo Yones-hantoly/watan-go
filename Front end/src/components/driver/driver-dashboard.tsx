@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Banknote, Clock3, Headphones, ListChecks, PackageCheck, Star, TrendingUp } from "lucide-react";
+import { Banknote, Clock3, ListChecks, PackageCheck, Star, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 import { type AuthUser } from "@/lib/auth";
 import { getOrders, updateDriverStatus, updateOrderStatus, type Order as CommerceOrder } from "@/lib/commerce";
@@ -10,7 +10,6 @@ import {
 } from "@/lib/ride-orders";
 import {
   mockActivity,
-  mockChatMessages,
   mockEarnings,
   mockNotifications,
   mockOrders,
@@ -19,8 +18,8 @@ import {
   type DriverStatus,
   type Order,
 } from "@/lib/driver-mock-data";
-import { ChatWidget } from "@/components/driver/chat-widget";
 import { DeliverySection } from "@/components/driver/delivery-section";
+import { type TrackingOrder } from "@/components/driver/LiveTrackingMap";
 import {
   DetailsDrawer,
   EarningsDetails,
@@ -48,9 +47,9 @@ export function DriverDashboard({ user, onLogout }: DriverDashboardProps) {
     getOrders().filter((o) => o.status !== "delivered" && o.status !== "cancelled"),
   );
   const [rideOrders, setRideOrders] = useState<RideOrder[]>([]);
+  const [activeTracking, setActiveTracking] = useState<TrackingOrder | null>(null);
   const [drawer, setDrawer] = useState<DrawerKind>(null);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [chatOpen, setChatOpen] = useState(false);
   const [isDark, setIsDark] = useState(() => {
     if (typeof document === "undefined") return true;
     return !document.documentElement.classList.contains("light");
@@ -68,9 +67,9 @@ export function DriverDashboard({ user, onLogout }: DriverDashboardProps) {
   }, []);
 
   const completedTrips = mockTrips.filter((t) => t.status === "completed").length;
-  const totalEarnings = mockEarnings.reduce((s, i) => s + i.netProfit, 0);
-  const averageRating = mockRatings.reduce((s, i) => s + i.rating, 0) / mockRatings.length;
-  const activeOrder = useMemo(() => orders.find((o) => o.status === "active"), [orders]);
+  const totalEarnings  = mockEarnings.reduce((s, i) => s + i.netProfit, 0);
+  const averageRating  = mockRatings.reduce((s, i) => s + i.rating, 0) / mockRatings.length;
+  const activeOrder    = useMemo(() => orders.find((o) => o.status === "active"), [orders]);
 
   const openOrder = (order: Order) => { setSelectedOrder(order); setDrawer("order"); };
 
@@ -87,9 +86,79 @@ export function DriverDashboard({ user, onLogout }: DriverDashboardProps) {
     toast.success(message);
   };
 
-  const handleAcceptRide  = (id: string) => { updateRideStatus(id, "accepted");  toast.success("تم قبول الرحلة"); };
-  const handleRejectRide  = (id: string) => { updateRideStatus(id, "cancelled"); toast.success("تم رفض الرحلة"); };
-  const handleCompleteRide = (id: string) => { updateRideStatus(id, "completed"); toast.success("تمت الرحلة بنجاح"); };
+  // ── Accept handlers — each sets activeTracking and navigates to delivery ──
+
+  const handleAcceptRide = (id: string) => {
+    updateRideStatus(id, "accepted");
+    toast.success("تم قبول الرحلة");
+    const r = getRideOrders().find((o) => o.id === id);
+    if (r) {
+      setActiveTracking({
+        id: r.id,
+        kind: "ride",
+        customerName: r.user.name,
+        pickup: r.pickup,
+        pickupCoords: r.pickupCoords,
+        destination: r.destination,
+        destinationCoords: r.destinationCoords,
+        price: r.price,
+      });
+      setActiveView("delivery");
+    }
+  };
+
+  const handleAcceptDelivery = (orderId: string) => {
+    updateDeliveryOrder(orderId, "accepted", "تم قبول مهمة التوصيل");
+    const o = getOrders().find((x) => x.id === orderId);
+    if (o) {
+      setActiveTracking({
+        id: o.id,
+        kind: o.type === "food" ? "food" : "shop",
+        customerName: o.user.name,
+        pickup: o.vendorName,
+        pickupCoords: null,
+        destination: o.deliveryAddress,
+        destinationCoords: null,
+        price: o.total,
+      });
+      setActiveView("delivery");
+    }
+  };
+
+  const handleAcceptMockOrder = (orderId: string) => {
+    updateOrder(orderId, "active", "تم قبول الطلب");
+    const o = orders.find((x) => x.id === orderId);
+    if (o) {
+      setActiveTracking({
+        id: o.id,
+        kind: "food",
+        customerName: o.customerName,
+        pickup: o.pickupLocation,
+        pickupCoords: null,
+        destination: o.deliveryLocation,
+        destinationCoords: null,
+        price: o.price,
+      });
+      setActiveView("delivery");
+    }
+  };
+
+  const handleRejectRide   = (id: string) => { updateRideStatus(id, "cancelled"); toast.success("تم رفض الرحلة"); };
+  const handleCompleteRide = (id: string) => {
+    updateRideStatus(id, "completed");
+    toast.success("تمت الرحلة بنجاح");
+    if (activeTracking?.id === id) setActiveTracking(null);
+  };
+
+  const handleCompleteTracking = () => {
+    if (activeTracking) {
+      const isRide = getRideOrders().some((o) => o.id === activeTracking.id);
+      if (isRide) updateRideStatus(activeTracking.id, "completed");
+      else updateDeliveryOrder(activeTracking.id, "delivered", "تم تسليم الطلب");
+    }
+    setActiveTracking(null);
+    toast.success("تم إتمام التوصيل بنجاح ✓");
+  };
 
   const toggleTheme = () => {
     if (typeof document === "undefined") return;
@@ -103,7 +172,7 @@ export function DriverDashboard({ user, onLogout }: DriverDashboardProps) {
       <div className="flex min-h-screen flex-col lg:flex-row">
         <SidebarNavigation
           activeView={activeView}
-          onChange={(view) => { setActiveView(view); if (view === "support") setChatOpen(true); }}
+          onChange={(view) => { setActiveView(view); }}
         />
         <div className="min-w-0 flex-1">
           <DriverHeader user={user} status={driverStatus} isDark={isDark} onLogout={onLogout} onToggleTheme={toggleTheme} />
@@ -125,7 +194,7 @@ export function DriverDashboard({ user, onLogout }: DriverDashboardProps) {
                     onOpenDrawer={setDrawer}
                     onGoOrders={() => setActiveView("orders")}
                     deliveryOrders={deliveryOrders}
-                    onAcceptDelivery={(id) => updateDeliveryOrder(id, "accepted", "تم قبول مهمة التوصيل")}
+                    onAcceptDelivery={handleAcceptDelivery}
                     onCompleteDelivery={(id) => updateDeliveryOrder(id, "delivered", "تم تسليم الطلب")}
                     rideOrders={rideOrders}
                     onAcceptRide={handleAcceptRide}
@@ -136,17 +205,24 @@ export function DriverDashboard({ user, onLogout }: DriverDashboardProps) {
                 {activeView === "orders" && (
                   <OrdersSection
                     orders={orders}
-                    onAccept={(id) => updateOrder(id, "active", "تم قبول الطلب")}
+                    onAccept={handleAcceptMockOrder}
                     onReject={(id) => updateOrder(id, "cancelled", "تم رفض الطلب")}
                     onStart={(id) => updateOrder(id, "active", "بدأت رحلة التوصيل")}
                     onComplete={(id) => updateOrder(id, "completed", "تم إكمال الطلب بنجاح")}
                     onViewDetails={openOrder}
                   />
                 )}
-                {activeView === "delivery" && <DeliverySection currentOrder={activeOrder} driverStatus={driverStatus} onStatusChange={setDriverStatus} />}
+                {activeView === "delivery" && (
+                  <DeliverySection
+                    currentOrder={activeOrder}
+                    driverStatus={driverStatus}
+                    onStatusChange={setDriverStatus}
+                    activeTracking={activeTracking}
+                    onCompleteTracking={handleCompleteTracking}
+                  />
+                )}
                 {activeView === "earnings" && <EarningsDetails earnings={mockEarnings} />}
-                {activeView === "ratings" && <RatingDetails ratings={mockRatings} averageRating={averageRating} />}
-                {activeView === "support" && <SupportPanel onOpenChat={() => setChatOpen(true)} />}
+                {activeView === "ratings"  && <RatingDetails ratings={mockRatings} averageRating={averageRating} />}
                 {activeView === "settings" && <SettingsPanel />}
               </motion.div>
             </AnimatePresence>
@@ -161,7 +237,6 @@ export function DriverDashboard({ user, onLogout }: DriverDashboardProps) {
         {drawer === "hours"    && <WorkingHoursDetails startTime={new Date("2026-04-29T08:00:00")} breakTime={25} status={driverStatus} activity={mockActivity} />}
         {drawer === "order"    && selectedOrder && <OrderDetails order={selectedOrder} />}
       </DetailsDrawer>
-      <ChatWidget initialMessages={mockChatMessages} forceOpen={chatOpen} onOpenChange={setChatOpen} />
     </div>
   );
 }
@@ -195,7 +270,7 @@ function DashboardHome({
           <div>
             <p className="text-sm font-bold text-cyan">لوحة السائق المباشرة</p>
             <h2 className="mt-2 font-display text-3xl font-bold sm:text-4xl">جاهز لاستلام طلبات اليوم؟</h2>
-            <p className="mt-3 max-w-2xl text-sm leading-7 text-muted-foreground">تابع الرحلات والأرباح والتقييمات والدعم المباشر داخل تجربة عربية RTL مصممة لسائق يعمل بسرعة ووضوح.</p>
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-muted-foreground">تابع الرحلات والأرباح والتقييمات داخل تجربة عربية RTL مصممة لسائق يعمل بسرعة ووضوح.</p>
             <div className="mt-5 flex flex-wrap gap-2">
               <button onClick={onGoOrders} className="rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground transition hover:bg-primary/90">عرض الطلبات</button>
               <button onClick={() => onOpenDrawer("hours")} className="rounded-xl border border-cyan/30 bg-cyan/10 px-4 py-2.5 text-sm font-bold text-cyan transition hover:border-cyan/60">حالة المناوبة</button>
@@ -210,8 +285,8 @@ function DashboardHome({
             </div>
             <div className="mt-5 grid grid-cols-2 gap-3">
               <MiniDashboardMetric label="طلبات رحلات" value={String(rideOrders.length)} />
-              <MiniDashboardMetric label="طلب نشط" value="1" />
-              <MiniDashboardMetric label="تنبيهات" value={mockNotifications.length.toString()} />
+              <MiniDashboardMetric label="توصيل نشط"   value={String(deliveryOrders.length)} />
+              <MiniDashboardMetric label="تنبيهات"      value={mockNotifications.length.toString()} />
               <MiniDashboardMetric label="قبول الطلبات" value="92%" />
             </div>
           </div>
@@ -219,10 +294,10 @@ function DashboardHome({
       </section>
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatsCard title="رحلات اليوم" value={`${completedTrips}`} hint="مع رحلة نشطة الآن" icon={ListChecks} tone="cyan" onClick={() => onOpenDrawer("trips")} />
-        <StatsCard title="أرباح اليوم" value={`${totalEarnings.toFixed(0)} شيكل`} hint="بعد خصم عمولة المنصة" icon={Banknote} tone="amber" onClick={() => onOpenDrawer("earnings")} />
-        <StatsCard title="التقييم" value={averageRating.toFixed(1)} hint={`${mockRatings.length} تقييم حديث`} icon={Star} tone="cyan" onClick={() => onOpenDrawer("rating")} />
-        <StatsCard title="ساعات العمل" value="6.2" hint="تشمل 25 دقيقة استراحة" icon={Clock3} tone="primary" onClick={() => onOpenDrawer("hours")} />
+        <StatsCard title="رحلات اليوم"  value={`${completedTrips}`}           hint="مع رحلة نشطة الآن"        icon={ListChecks} tone="cyan"    onClick={() => onOpenDrawer("trips")} />
+        <StatsCard title="أرباح اليوم"  value={`${totalEarnings.toFixed(0)} شيكل`} hint="بعد خصم عمولة المنصة" icon={Banknote}    tone="amber"   onClick={() => onOpenDrawer("earnings")} />
+        <StatsCard title="التقييم"       value={averageRating.toFixed(1)}       hint={`${mockRatings.length} تقييم حديث`} icon={Star} tone="cyan" onClick={() => onOpenDrawer("rating")} />
+        <StatsCard title="ساعات العمل"  value="6.2"                            hint="تشمل 25 دقيقة استراحة"   icon={Clock3}     tone="primary" onClick={() => onOpenDrawer("hours")} />
       </section>
 
       {/* ── Ride requests ── */}
@@ -253,7 +328,7 @@ function DashboardHome({
               <div className="mt-3 flex flex-wrap gap-2">
                 {r.status === "pending" && (
                   <>
-                    <button onClick={() => onAcceptRide(r.id)} className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground">قبول</button>
+                    <button onClick={() => onAcceptRide(r.id)} className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground">قبول والتوجه</button>
                     <button onClick={() => onRejectRide(r.id)} className="rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-2 text-xs font-bold text-destructive">رفض</button>
                   </>
                 )}
@@ -314,24 +389,13 @@ function DashboardHome({
                 <p className="mt-1 text-sm text-muted-foreground">{order.deliveryAddress} · {order.total} شيكل</p>
               </div>
               <div className="flex gap-2">
-                <button onClick={() => onAcceptDelivery(order.id)} className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground">قبول</button>
+                <button onClick={() => onAcceptDelivery(order.id)} className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground">قبول والتوجه</button>
                 <button onClick={() => onCompleteDelivery(order.id)} className="rounded-xl border border-border bg-secondary/50 px-4 py-2 text-xs font-bold">تم التسليم</button>
               </div>
             </div>
           ))}
         </div>
       </section>
-    </div>
-  );
-}
-
-function SupportPanel({ onOpenChat }: { onOpenChat: () => void }) {
-  return (
-    <div className="rounded-3xl border border-white/10 bg-surface/85 p-8 text-center">
-      <Headphones className="mx-auto h-14 w-14 text-cyan" />
-      <h2 className="mt-4 font-display text-2xl font-bold">الدعم المباشر</h2>
-      <p className="mx-auto mt-2 max-w-lg text-sm leading-7 text-muted-foreground">تواصل مع فريق Watan Go لمشاكل العناوين، الدفع، الطلبات النشطة أو أي حالة طارئة أثناء التوصيل.</p>
-      <button onClick={onOpenChat} className="mt-5 rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-primary-foreground transition hover:bg-primary/90">فتح المحادثة</button>
     </div>
   );
 }

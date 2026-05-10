@@ -3,13 +3,12 @@ import { useEffect, useState } from "react";
 import { Eye, EyeOff, Lock, Phone, Loader2, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import {
-  ROLES,
   authenticateAccount,
+  clearPendingLoginRole,
   ensureInitialAdminAccount,
   normalizePhone,
   routeForRole,
   setAuth,
-  type Role,
 } from "@/lib/auth";
 import { consumeLoginRequiredMessage } from "@/lib/route-guards";
 
@@ -29,7 +28,6 @@ function LoginPage() {
   const navigate = useNavigate();
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<Role>("customer");
   const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
   const [shake, setShake] = useState(false);
@@ -37,10 +35,9 @@ function LoginPage() {
 
   useEffect(() => {
     ensureInitialAdminAccount();
-    const loginRequiredMessage = consumeLoginRequiredMessage();
-    if (loginRequiredMessage) {
-      toast.info(loginRequiredMessage);
-    }
+    clearPendingLoginRole();
+    const msg = consumeLoginRequiredMessage();
+    if (msg) toast.info(msg);
   }, []);
 
   const formatPhone = (value: string) => {
@@ -51,58 +48,43 @@ function LoginPage() {
   };
 
   const validate = () => {
-    const nextErrors: typeof errors = {};
-    const digits = normalizePhone(phone);
-    if (digits.length < 9) nextErrors.phone = "رقم الهاتف غير صحيح";
-    if (password.length < 4) nextErrors.password = "كلمة المرور قصيرة جدًا";
-    setErrors(nextErrors);
-    return Object.keys(nextErrors).length === 0;
+    const next: typeof errors = {};
+    if (normalizePhone(phone).length < 9) next.phone = "رقم الهاتف غير صحيح";
+    if (password.length < 4) next.password = "كلمة المرور قصيرة جدًا";
+    setErrors(next);
+    return Object.keys(next).length === 0;
+  };
+
+  const triggerShake = () => {
+    setShake(true);
+    setTimeout(() => setShake(false), 500);
   };
 
   const handleSubmit = async (ev: React.FormEvent) => {
     ev.preventDefault();
-    if (!validate()) {
-      setShake(true);
-      setTimeout(() => setShake(false), 500);
-      return;
-    }
+    if (!validate()) { triggerShake(); return; }
 
     setLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 700));
+    await new Promise((r) => setTimeout(r, 700));
 
     const result = await authenticateAccount(phone, password);
 
-    if (!result.ok && result.reason === "account_not_found") {
+    if (!result.ok) {
       setLoading(false);
-      setShake(true);
-      setErrors({ phone: "رقم الهاتف غير مسجل" });
-      setTimeout(() => setShake(false), 500);
-      toast.error("رقم الهاتف غير مسجل");
-      return;
-    }
-
-    if (!result.ok && result.reason === "invalid_password") {
-      setLoading(false);
-      setShake(true);
-      setErrors({ password: "كلمة المرور غير صحيحة" });
-      setTimeout(() => setShake(false), 500);
-      toast.error("كلمة المرور غير صحيحة");
+      triggerShake();
+      if (result.reason === "account_not_found") {
+        setErrors({ phone: "رقم الهاتف غير مسجل" });
+        toast.error("رقم الهاتف غير مسجل");
+      } else {
+        setErrors({ password: "كلمة المرور غير صحيحة" });
+        toast.error("كلمة المرور غير صحيحة");
+      }
       return;
     }
 
     const { account } = result;
-
-    if (account.role !== role) {
-      setLoading(false);
-      setShake(true);
-      setErrors({ phone: " ", password: "نوع الحساب غير صحيح" });
-      setTimeout(() => setShake(false), 500);
-      toast.error("نوع الحساب غير صحيح");
-      return;
-    }
-
     setAuth({ name: account.name, phone: account.phone, role: account.role });
-    toast.success(`تم تسجيل الدخول كـ ${account.name}`);
+    toast.success(`أهلاً ${account.name}، تم تسجيل الدخول بنجاح`);
     navigate({ to: routeForRole(account.role) });
   };
 
@@ -130,11 +112,12 @@ function LoginPage() {
 
       <div className="relative z-10 flex min-h-screen items-center justify-center px-4 py-10">
         <div
-          className={`w-full max-w-[420px] rounded-[20px] border border-slate-100 bg-white p-7 shadow-[0_20px_60px_-20px_rgba(15,23,42,0.18)] transition-transform sm:p-8 ${
+          className={`w-full max-w-[420px] rounded-[20px] border border-slate-100 bg-white p-7 shadow-[0_20px_60px_-20px_rgba(15,23,42,0.18)] sm:p-8 ${
             shake ? "animate-[shake_0.45s_ease-in-out]" : ""
           }`}
         >
-          <div className="mb-6 flex flex-col items-center text-center">
+          {/* Logo */}
+          <div className="mb-8 flex flex-col items-center text-center">
             <Link to="/" className="flex items-center gap-2.5">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-lg shadow-emerald-500/30">
                 <span className="text-xl font-bold text-white">و</span>
@@ -144,40 +127,17 @@ function LoginPage() {
                 <span className="mt-0.5 text-xs font-medium text-emerald-600" dir="ltr">Watan Go</span>
               </div>
             </Link>
-            <p className="mt-4 text-sm text-slate-500">منصة التوصيل المحلية الأسرع في مدينتك</p>
+            <h1 className="mt-5 text-lg font-bold text-slate-800">تسجيل الدخول</h1>
+            <p className="mt-1 text-sm text-slate-500">أدخل رقم هاتفك وكلمة المرور للمتابعة</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-slate-700">نوع الحساب</label>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-2">
-                {ROLES.map((item) => {
-                  const active = role === item.value;
-                  return (
-                    <button
-                      key={item.value}
-                      type="button"
-                      onClick={() => setRole(item.value)}
-                      disabled={loading}
-                      title={item.label}
-                      className={`flex flex-col items-center gap-0.5 rounded-lg border p-2 transition-all ${
-                        active
-                          ? "border-emerald-500 bg-emerald-50 ring-2 ring-emerald-100"
-                          : "border-slate-200 bg-white hover:border-slate-300"
-                      }`}
-                    >
-                      <span className="text-base">{item.emoji}</span>
-                      <span className={`text-[10px] font-bold ${active ? "text-emerald-700" : "text-slate-600"}`}>
-                        {item.label}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
 
+            {/* Phone */}
             <div>
-              <label htmlFor="phone" className="mb-1.5 block text-sm font-semibold text-slate-700">رقم الهاتف</label>
+              <label htmlFor="phone" className="mb-1.5 block text-sm font-semibold text-slate-700">
+                رقم الهاتف
+              </label>
               <div
                 className={`flex items-center gap-2 rounded-xl border bg-white px-3 transition-all ${
                   errors.phone
@@ -198,16 +158,19 @@ function LoginPage() {
                   value={phone}
                   onChange={(e) => {
                     setPhone(formatPhone(e.target.value));
-                    if (errors.phone) setErrors((prev) => ({ ...prev, phone: undefined }));
+                    if (errors.phone) setErrors((p) => ({ ...p, phone: undefined }));
                   }}
                   disabled={loading}
                 />
               </div>
-              {errors.phone && errors.phone.trim() && <p className="mt-1.5 text-xs text-red-500">{errors.phone}</p>}
+              {errors.phone && <p className="mt-1.5 text-xs text-red-500">{errors.phone}</p>}
             </div>
 
+            {/* Password */}
             <div>
-              <label htmlFor="password" className="mb-1.5 block text-sm font-semibold text-slate-700">كلمة المرور</label>
+              <label htmlFor="password" className="mb-1.5 block text-sm font-semibold text-slate-700">
+                كلمة المرور
+              </label>
               <div
                 className={`flex items-center gap-2 rounded-xl border bg-white px-3 transition-all ${
                   errors.password
@@ -225,13 +188,13 @@ function LoginPage() {
                   value={password}
                   onChange={(e) => {
                     setPassword(e.target.value);
-                    if (errors.password) setErrors((prev) => ({ ...prev, password: undefined }));
+                    if (errors.password) setErrors((p) => ({ ...p, password: undefined }));
                   }}
                   disabled={loading}
                 />
                 <button
                   type="button"
-                  onClick={() => setShowPwd((state) => !state)}
+                  onClick={() => setShowPwd((s) => !s)}
                   className="rounded-md p-1 text-slate-400 transition-colors hover:text-slate-700"
                   aria-label={showPwd ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
                 >
@@ -242,7 +205,10 @@ function LoginPage() {
             </div>
 
             <div className="flex justify-end">
-              <button type="button" className="text-xs font-semibold text-emerald-600 transition-colors hover:text-emerald-700">
+              <button
+                type="button"
+                className="text-xs font-semibold text-emerald-600 transition-colors hover:text-emerald-700"
+              >
                 نسيت كلمة المرور؟
               </button>
             </div>

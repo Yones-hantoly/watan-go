@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useCallback, useReducer, useRef, useState } from "react";
+import { useMemo, useCallback, useReducer, useRef, useState } from "react";
 import {
   Car, MapPin, Navigation, Tag,
   Loader2, AlertCircle, LocateFixed, X, Map, CheckCircle2,
@@ -9,7 +9,7 @@ import { PageHero, SectionHeading } from "@/components/ui-bits";
 import { MapModal, type MapSelection } from "@/components/MapModal";
 import { requireAuthForProtectedRoute } from "@/lib/route-guards";
 import { getAuth } from "@/lib/auth";
-import { createRideOrder } from "@/lib/ride-orders";
+import { createRideOrder, calcDeliveryPrice, detectDeliveryType, INTERNAL_PRICE, EXTERNAL_PRICE_PER_KM, type DeliveryType } from "@/lib/ride-orders";
 
 export const Route = createFileRoute("/ride-request")({
   beforeLoad: requireAuthForProtectedRoute,
@@ -113,7 +113,9 @@ function estimateDuration(km: number): string {
   return `${minutes} دقيقة`;
 }
 
-const PRICE_PER_KM = 3; // شيكل per km — swap for API value when backend is ready
+// ── Pricing ───────────────────────────────────────────────────────────────────
+// Defined in ride-orders.ts — imported above
+// internal = 10 ILS fixed | external = 3 ILS/km
 
 const recentPlaces = ["الجامعة", "وسط البلد", "المستشفى", "المنزل"];
 
@@ -216,6 +218,20 @@ function RideRequestPage() {
     ? haversineKm(state.pickup.coords!, state.destination.coords!)
     : null;
 
+  // Auto-detect delivery type from city names + distance — no manual toggle needed
+  const deliveryType: DeliveryType | null = useMemo(
+    () => detectDeliveryType(
+      state.pickup.address,
+      state.destination.address,
+      state.pickup.coords,
+      state.destination.coords,
+      distanceKm,
+    ),
+    [state.pickup.address, state.pickup.coords, state.destination.address, state.destination.coords, distanceKm],
+  );
+
+  const estimatedPrice = deliveryType != null ? calcDeliveryPrice(deliveryType, distanceKm) : null;
+
   const canConfirm = !!state.pickup.address && !!state.destination.address &&
     !state.pickup.loading && !state.destination.loading;
 
@@ -239,7 +255,8 @@ function RideRequestPage() {
       destinationCoords:  state.destination.coords,
       distanceKm,
       durationLabel:      distanceKm != null ? estimateDuration(distanceKm) : null,
-      price:              distanceKm != null ? parseFloat((distanceKm * PRICE_PER_KM).toFixed(1)) : null,
+      price:              estimatedPrice,
+      deliveryType:       deliveryType ?? "external",
     });
 
     toast.success("تم تأكيد طلب الرحلة بنجاح!", {
@@ -256,7 +273,7 @@ function RideRequestPage() {
       setConfirmed(false);
       submitLockRef.current = false;
     }, 2500);
-  }, [canConfirm, state.pickup, state.destination, distanceKm]);
+  }, [canConfirm, state.pickup, state.destination, distanceKm, deliveryType, estimatedPrice]);
 
   return (
     <>
@@ -411,33 +428,86 @@ function RideRequestPage() {
             </div>
 
             {/* Trip estimates */}
-            <div className="mt-6 grid gap-4 md:grid-cols-3">
-              <div className="rounded-2xl border border-border bg-secondary/30 p-4">
-                <div className="text-xs text-muted-foreground">المسافة التقديرية</div>
-                <div className="mt-1 font-display text-xl font-bold">
-                  {distanceKm != null ? `${distanceKm.toFixed(1)} كم` : "—"}
-                </div>
-              </div>
-              <div className="rounded-2xl border border-border bg-secondary/30 p-4">
-                <div className="text-xs text-muted-foreground">المدة المتوقعة</div>
-                <div className="mt-1 font-display text-xl font-bold">
-                  {distanceKm != null ? estimateDuration(distanceKm) : "—"}
-                </div>
-              </div>
-              <div className="rounded-2xl border border-border bg-secondary/30 p-4">
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <Tag className="h-3.5 w-3.5" />
-                  السعر التقديري
-                </div>
-                {distanceKm != null ? (
-                  <div className="mt-1 font-display text-xl font-bold text-primary">
-                    {(distanceKm * PRICE_PER_KM).toFixed(1)} شيكل
+            <div className="mt-6 space-y-4">
+
+              {/* Auto-detected delivery type badge */}
+              <div className={`rounded-2xl border p-4 transition-colors ${
+                deliveryType === "internal"
+                  ? "border-cyan/40 bg-cyan/8"
+                  : deliveryType === "external"
+                  ? "border-primary/40 bg-primary/8"
+                  : "border-border bg-secondary/30"
+              }`}>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">
+                      {deliveryType === "internal" ? "🏙️" : deliveryType === "external" ? "🛣️" : "📍"}
+                    </span>
+                    <div>
+                      <div className="text-xs text-muted-foreground">نوع التوصيل</div>
+                      <div className={`text-sm font-bold ${
+                        deliveryType === "internal" ? "text-cyan"
+                        : deliveryType === "external" ? "text-primary"
+                        : "text-muted-foreground"
+                      }`}>
+                        {deliveryType === "internal" ? "توصيل داخلي — نفس المدينة"
+                          : deliveryType === "external" ? "توصيل خارجي — مدينة مختلفة"
+                          : "جارٍ التحقق من الموقعين…"}
+                      </div>
+                    </div>
                   </div>
-                ) : (
-                  <div className="mt-1 font-display text-xl font-bold text-muted-foreground">—</div>
+                  {deliveryType != null && (
+                    <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${
+                      deliveryType === "internal"
+                        ? "bg-cyan/15 text-cyan"
+                        : "bg-primary/15 text-primary"
+                    }`}>
+                      {deliveryType === "internal"
+                        ? `ثابت ${INTERNAL_PRICE} ₪`
+                        : `${EXTERNAL_PRICE_PER_KM} ₪ / كم`}
+                    </span>
+                  )}
+                </div>
+                {deliveryType == null && (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    حدّد نقطة الانطلاق والوجهة عبر GPS لتحديد نوع التوصيل تلقائياً.
+                  </p>
                 )}
-                <div className="mt-1.5 text-[11px] text-muted-foreground">
-                  {PRICE_PER_KM} شيكل / كم
+              </div>
+
+              {/* Distance · Duration · Price */}
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="rounded-2xl border border-border bg-secondary/30 p-4">
+                  <div className="text-xs text-muted-foreground">المسافة التقديرية</div>
+                  <div className="mt-1 font-display text-xl font-bold">
+                    {distanceKm != null ? `${distanceKm.toFixed(1)} كم` : "—"}
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-border bg-secondary/30 p-4">
+                  <div className="text-xs text-muted-foreground">المدة المتوقعة</div>
+                  <div className="mt-1 font-display text-xl font-bold">
+                    {distanceKm != null ? estimateDuration(distanceKm) : "—"}
+                  </div>
+                </div>
+                <div className={`rounded-2xl border p-4 transition-colors ${
+                  estimatedPrice != null ? "border-primary/40 bg-primary/8" : "border-border bg-secondary/30"
+                }`}>
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Tag className="h-3.5 w-3.5" />
+                    السعر التقديري
+                  </div>
+                  <div className={`mt-1 font-display text-xl font-bold ${
+                    estimatedPrice != null ? "text-primary" : "text-muted-foreground"
+                  }`}>
+                    {estimatedPrice != null ? `${estimatedPrice} ₪` : "—"}
+                  </div>
+                  <div className="mt-1 text-[11px] text-muted-foreground">
+                    {deliveryType === "internal"
+                      ? "سعر ثابت داخل المدينة"
+                      : deliveryType === "external" && distanceKm != null
+                        ? `${distanceKm.toFixed(1)} كم × ${EXTERNAL_PRICE_PER_KM} ₪`
+                        : "تحديد الموقعين أولاً"}
+                  </div>
                 </div>
               </div>
             </div>

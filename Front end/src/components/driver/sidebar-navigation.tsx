@@ -1,6 +1,5 @@
 import {
   BarChart3,
-  Headphones,
   Home,
   Map,
   PackageCheck,
@@ -11,16 +10,15 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type DriverView = "dashboard" | "orders" | "delivery" | "earnings" | "ratings" | "support" | "settings";
+export type DriverView = "dashboard" | "orders" | "delivery" | "earnings" | "ratings" | "settings";
 
 const navItems: { id: DriverView; label: string; icon: LucideIcon }[] = [
   { id: "dashboard", label: "الرئيسية", icon: Home },
-  { id: "orders", label: "الطلبات", icon: PackageCheck },
-  { id: "delivery", label: "التوصيل", icon: Map },
-  { id: "earnings", label: "الأرباح", icon: WalletCards },
-  { id: "ratings", label: "التقييمات", icon: Star },
-  { id: "support", label: "دعم مباشر", icon: Headphones },
-  { id: "settings", label: "الإعدادات", icon: Settings },
+  { id: "orders",    label: "الطلبات",  icon: PackageCheck },
+  { id: "delivery",  label: "التوصيل",  icon: Map },
+  { id: "earnings",  label: "الأرباح",   icon: WalletCards },
+  { id: "ratings",   label: "التقييمات", icon: Star },
+  { id: "settings",  label: "الإعدادات", icon: Settings },
 ];
 
 interface SidebarNavigationProps {

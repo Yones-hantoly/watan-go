@@ -26,6 +26,7 @@ export interface RegisteredAccount {
 const AUTH_KEY = "watan_go_auth";
 const ACCOUNTS_KEY = "watan_go_accounts";
 const AUDIT_LOG_KEY = "watan_go_audit_log";
+const PENDING_LOGIN_ROLE_KEY = "watan_go_pending_login_role";
 const PASSWORD_ITERATIONS = 210000;
 const INITIAL_ADMIN_ACCOUNT = {
   name: "System Administrator",
@@ -67,6 +68,22 @@ export function labelForRole(role: Role): string {
 
 export function emojiForRole(role: Role): string {
   return ROLES.find((r) => r.value === role)?.emoji ?? "👤";
+}
+
+export function setPendingLoginRole(role: PublicRegisterRole) {
+  if (typeof window === "undefined") return;
+  sessionStorage.setItem(PENDING_LOGIN_ROLE_KEY, role);
+}
+
+export function getPendingLoginRole(): PublicRegisterRole | null {
+  if (typeof window === "undefined") return null;
+  const raw = sessionStorage.getItem(PENDING_LOGIN_ROLE_KEY);
+  return raw && isPublicRegisterRole(raw as Role) ? (raw as PublicRegisterRole) : null;
+}
+
+export function clearPendingLoginRole() {
+  if (typeof window === "undefined") return;
+  sessionStorage.removeItem(PENDING_LOGIN_ROLE_KEY);
 }
 
 export function setAuth(user: AuthUser) {

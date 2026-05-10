@@ -87,7 +87,7 @@ function RegisterPage() {
       return;
     }
 
-    toast.success("تم إنشاء الحساب بنجاح، يمكنك تسجيل الدخول الآن");
+    toast.success("تم إنشاء الحساب بنجاح، سجّل دخولك الآن");
     navigate({ to: "/login" });
   };
 
