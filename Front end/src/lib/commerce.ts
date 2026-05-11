@@ -1,4 +1,5 @@
 import type { AuthUser } from "@/lib/auth";
+import type { DeliveryStage } from "@/lib/delivery-flow";
 
 export type CartItemType = "food" | "grocery";
 export type OrderStatus = "pending" | "accepted" | "preparing" | "on_the_way" | "delivered" | "cancelled";
@@ -28,8 +29,12 @@ export interface Order {
   deliveryAddress: string;
   status: OrderStatus;
   driverStatus: "pending" | "accepted" | "picked_up" | "delivered";
+  driverName?: string;
+  driverPhone?: string;
+  deliveryStage?: DeliveryStage;
   createdAt: string;
   updatedAt: string;
+  completedAt?: string;
 }
 
 export interface GroceryItem {
@@ -50,6 +55,7 @@ export interface GroceryItem {
 const CART_KEY = "watan_go_cart";
 const ORDERS_KEY = "watan_go_orders";
 const CART_EVENT = "watan-go-cart-updated";
+const ORDERS_EVENT = "watan-go-orders-updated";
 
 export const groceryItems: GroceryItem[] = [
   { id: "milk-1l",    category: "بقالة",        name: "حليب طازج 1 لتر",    description: "حليب يومي كامل الدسم",          price: 6,  image: "🥛", storeId: "city-market",   storeName: "ماركت المدينة", rating: 4.8, inStock: true,  isPopular: true,  isNew: false },
@@ -88,12 +94,27 @@ function emitCartUpdated() {
   window.dispatchEvent(new Event(CART_EVENT));
 }
 
+function emitOrdersUpdated() {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event(ORDERS_EVENT));
+}
+
 export function subscribeToCart(listener: () => void) {
   if (typeof window === "undefined") return () => {};
   window.addEventListener(CART_EVENT, listener);
   window.addEventListener("storage", listener);
   return () => {
     window.removeEventListener(CART_EVENT, listener);
+    window.removeEventListener("storage", listener);
+  };
+}
+
+export function subscribeToOrders(listener: () => void) {
+  if (typeof window === "undefined") return () => {};
+  window.addEventListener(ORDERS_EVENT, listener);
+  window.addEventListener("storage", listener);
+  return () => {
+    window.removeEventListener(ORDERS_EVENT, listener);
     window.removeEventListener("storage", listener);
   };
 }
@@ -156,6 +177,7 @@ export function getOrders() {
 
 export function saveOrders(orders: Order[]) {
   writeJson(ORDERS_KEY, orders);
+  emitOrdersUpdated();
 }
 
 export function createOrder(user: AuthUser, deliveryAddress: string) {
@@ -189,17 +211,45 @@ export function createOrder(user: AuthUser, deliveryAddress: string) {
 }
 
 export function updateOrderStatus(orderId: string, status: OrderStatus) {
+  const now = new Date().toISOString();
   saveOrders(
     getOrders().map((order) =>
-      order.id === orderId ? { ...order, status, updatedAt: new Date().toISOString() } : order,
+      order.id === orderId
+        ? {
+            ...order,
+            status,
+            deliveryStage: status === "delivered" ? "delivered" : order.deliveryStage,
+            updatedAt: now,
+            completedAt: status === "delivered" ? now : order.completedAt,
+          }
+        : order,
     ),
   );
 }
 
-export function updateDriverStatus(orderId: string, driverStatus: Order["driverStatus"]) {
+export function updateDriverStatus(
+  orderId: string,
+  driverStatus: Order["driverStatus"],
+  driver?: Pick<AuthUser, "name" | "phone">,
+) {
+  const now = new Date().toISOString();
   saveOrders(
     getOrders().map((order) =>
-      order.id === orderId ? { ...order, driverStatus, updatedAt: new Date().toISOString() } : order,
+      order.id === orderId
+        ? {
+            ...order,
+            driverStatus,
+            deliveryStage:
+              driverStatus === "accepted" ? "accepted" :
+              driverStatus === "picked_up" ? "picked_up" :
+              driverStatus === "delivered" ? "delivered" :
+              order.deliveryStage,
+            driverName: driver?.name ?? order.driverName,
+            driverPhone: driver?.phone ?? order.driverPhone,
+            updatedAt: now,
+            completedAt: driverStatus === "delivered" ? now : order.completedAt,
+          }
+        : order,
     ),
   );
 }

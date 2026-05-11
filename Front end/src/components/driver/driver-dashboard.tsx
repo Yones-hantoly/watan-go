@@ -3,15 +3,18 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Banknote, Clock3, ListChecks, PackageCheck, Star, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 import { type AuthUser } from "@/lib/auth";
-import { getOrders, updateDriverStatus, updateOrderStatus, type Order as CommerceOrder } from "@/lib/commerce";
+import { getOrders, subscribeToOrders, updateDriverStatus, updateOrderStatus, type Order as CommerceOrder } from "@/lib/commerce";
+import { advanceOrderDeliveryStage, getOrderDeliveryStage, isFinalDeliveryStage, setOrderDeliveryStage } from "@/lib/delivery-flow";
+import { getDailyDriverEarnings, type DailyDriverEarnings } from "@/lib/driver-earnings";
+import { getDriverNotifications, type DriverNotification } from "@/lib/driver-notifications";
+import { getDriverStatus, subscribeToDriverStatus, updateDriverAvailabilityStatus } from "@/lib/driver-status";
+import { deriveDriverStats, type DriverStats, type DriverWorkSession } from "@/lib/driver-stats";
 import {
-  getRideOrders, subscribeToRideOrders, updateRideStatus,
+  acceptRideOrder, getRideOrders, subscribeToRideOrders, updateRideStatus,
   type RideOrder, RIDE_STATUS_LABELS, RIDE_STATUS_COLORS,
 } from "@/lib/ride-orders";
 import {
   mockActivity,
-  mockEarnings,
-  mockNotifications,
   mockOrders,
   mockRatings,
   mockTrips,
@@ -41,13 +44,20 @@ type DrawerKind = "trips" | "earnings" | "rating" | "hours" | "order" | null;
 
 export function DriverDashboard({ user, onLogout }: DriverDashboardProps) {
   const [activeView, setActiveView] = useState<DriverView>("dashboard");
-  const [driverStatus, setDriverStatus] = useState<DriverStatus>("online");
+  const [driverStatus, setDriverStatus] = useState<DriverStatus>(() => getDriverStatus(user.phone));
   const [orders, setOrders] = useState(mockOrders);
   const [deliveryOrders, setDeliveryOrders] = useState<CommerceOrder[]>(() =>
     getOrders().filter((o) => o.status !== "delivered" && o.status !== "cancelled"),
   );
+  const [allDeliveryOrders, setAllDeliveryOrders] = useState<CommerceOrder[]>(() => getOrders());
   const [rideOrders, setRideOrders] = useState<RideOrder[]>([]);
+  const [allRideOrders, setAllRideOrders] = useState<RideOrder[]>([]);
+  const [notifications, setNotifications] = useState<DriverNotification[]>([]);
+  const [isDriverDataLoading, setIsDriverDataLoading] = useState(true);
+  const [workSession] = useState<DriverWorkSession>(() => createTodayWorkSession());
+  const [statsClock, setStatsClock] = useState(() => new Date());
   const [activeTracking, setActiveTracking] = useState<TrackingOrder | null>(null);
+  const [lastDriverCoords, setLastDriverCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [drawer, setDrawer] = useState<DrawerKind>(null);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isDark, setIsDark] = useState(() => {
@@ -56,20 +66,87 @@ export function DriverDashboard({ user, onLogout }: DriverDashboardProps) {
   });
 
   useEffect(() => {
-    const load = () =>
+    const load = () => {
+      const nextRideOrders = getRideOrders();
+      setAllRideOrders(nextRideOrders);
       setRideOrders(
-        getRideOrders().filter(
+        nextRideOrders.filter(
           (o) => o.status === "pending" || o.status === "accepted" || o.status === "driver_assigned" || o.status === "on_the_way",
         ),
       );
+      setIsDriverDataLoading(false);
+    };
     load();
     return subscribeToRideOrders(load);
   }, []);
 
-  const completedTrips = mockTrips.filter((t) => t.status === "completed").length;
-  const totalEarnings  = mockEarnings.reduce((s, i) => s + i.netProfit, 0);
-  const averageRating  = mockRatings.reduce((s, i) => s + i.rating, 0) / mockRatings.length;
+  useEffect(() => {
+    const load = () => {
+      const nextOrders = getOrders();
+      setAllDeliveryOrders(nextOrders);
+      setDeliveryOrders(nextOrders.filter((o) => o.status !== "delivered" && o.status !== "cancelled"));
+    };
+    load();
+    return subscribeToOrders(load);
+  }, []);
+
+  useEffect(() => {
+    const load = () => setDriverStatus(getDriverStatus(user.phone));
+    load();
+    return subscribeToDriverStatus(load);
+  }, [user.phone]);
+
+  useEffect(() => {
+    let isCurrent = true;
+
+    async function loadNotifications() {
+      const data = await getDriverNotifications({ phone: user.phone }, {
+        rides: allRideOrders,
+        orders: allDeliveryOrders,
+      });
+      if (isCurrent) setNotifications(data);
+    }
+
+    void loadNotifications();
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [allDeliveryOrders, allRideOrders, user.phone]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setStatsClock(new Date()), 60000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const driverStats = useMemo(
+    () =>
+      deriveDriverStats({
+        rides: allRideOrders,
+        commerceOrders: allDeliveryOrders,
+        driverOrders: orders,
+        ratings: mockRatings,
+        workSession,
+        now: statsClock,
+      }),
+    [allDeliveryOrders, allRideOrders, orders, workSession, statsClock],
+  );
+  const dailyEarnings = useMemo(
+    () =>
+      getDailyDriverEarnings({
+        driverPhone: user.phone,
+        rides: allRideOrders,
+        orders: allDeliveryOrders,
+        now: statsClock,
+      }),
+    [allDeliveryOrders, allRideOrders, statsClock, user.phone],
+  );
   const activeOrder    = useMemo(() => orders.find((o) => o.status === "active"), [orders]);
+  const activeCommerceOrder = useMemo(
+    () => allDeliveryOrders.find((order) => order.id === activeTracking?.id) ?? null,
+    [activeTracking?.id, allDeliveryOrders],
+  );
+  const activeDeliveryStage = activeCommerceOrder ? getOrderDeliveryStage(activeCommerceOrder) : null;
 
   const openOrder = (order: Order) => { setSelectedOrder(order); setDrawer("order"); };
 
@@ -79,36 +156,68 @@ export function DriverDashboard({ user, onLogout }: DriverDashboardProps) {
   };
 
   const updateDeliveryOrder = (orderId: string, ds: CommerceOrder["driverStatus"], message: string) => {
-    updateDriverStatus(orderId, ds);
-    if (ds === "accepted") updateOrderStatus(orderId, "on_the_way");
+    updateDriverStatus(orderId, ds, user);
+    if (ds === "accepted") updateOrderStatus(orderId, "accepted");
     if (ds === "delivered") updateOrderStatus(orderId, "delivered");
-    setDeliveryOrders(getOrders().filter((o) => o.status !== "delivered" && o.status !== "cancelled"));
     toast.success(message);
+  };
+
+  const handleDriverStatusChange = (status: DriverStatus) => {
+    setDriverStatus(status);
+    updateDriverAvailabilityStatus(user.phone, status);
   };
 
   // ── Accept handlers — each sets activeTracking and navigates to delivery ──
 
   const handleAcceptRide = (id: string) => {
-    updateRideStatus(id, "accepted");
-    toast.success("تم قبول الرحلة");
-    const r = getRideOrders().find((o) => o.id === id);
-    if (r) {
-      setActiveTracking({
-        id: r.id,
-        kind: "ride",
-        customerName: r.user.name,
-        pickup: r.pickup,
-        pickupCoords: r.pickupCoords,
-        destination: r.destination,
-        destinationCoords: r.destinationCoords,
-        price: r.price,
-      });
-      setActiveView("delivery");
+    if (driverStatus === "busy") {
+      toast.error("أنت مشغول حالياً ولا تستطيع قبول الرحلة.");
+      return;
     }
+
+    if (driverStatus === "offline") {
+      toast.error("أنت غير متصل ولا تستطيع قبول الرحلة.");
+      return;
+    }
+
+    const result = acceptRideOrder({
+      rideId: id,
+      driver: user,
+      driverStatus,
+    });
+
+    if (!result.ok) {
+      toast.error(result.message);
+      return;
+    }
+
+    toast.success("تم قبول الرحلة بنجاح.");
+    setActiveTracking({
+      id: result.ride.id,
+      kind: "ride",
+      customerName: result.ride.user.name,
+      pickup: result.ride.pickup,
+      pickupCoords: result.ride.pickupCoords,
+      destination: result.ride.destination,
+      destinationCoords: result.ride.destinationCoords,
+      price: result.ride.price,
+    });
+    setActiveView("delivery");
   };
 
   const handleAcceptDelivery = (orderId: string) => {
+    if (driverStatus === "busy") {
+      toast.error("أنت مشغول حالياً ولا تستطيع قبول الرحلة.");
+      return;
+    }
+
+    if (driverStatus === "offline") {
+      toast.error("أنت غير متصل ولا تستطيع قبول الرحلة.");
+      return;
+    }
+
     updateDeliveryOrder(orderId, "accepted", "تم قبول مهمة التوصيل");
+    setOrderDeliveryStage(orderId, "accepted");
     const o = getOrders().find((x) => x.id === orderId);
     if (o) {
       setActiveTracking({
@@ -154,10 +263,25 @@ export function DriverDashboard({ user, onLogout }: DriverDashboardProps) {
     if (activeTracking) {
       const isRide = getRideOrders().some((o) => o.id === activeTracking.id);
       if (isRide) updateRideStatus(activeTracking.id, "completed");
-      else updateDeliveryOrder(activeTracking.id, "delivered", "تم تسليم الطلب");
+      else setOrderDeliveryStage(activeTracking.id, "delivered");
     }
-    setActiveTracking(null);
-    toast.success("تم إتمام التوصيل بنجاح ✓");
+    if (driverStatus !== "online") setActiveTracking(null);
+    toast.success("تم إنهاء التوصيل بنجاح");
+  };
+
+  const handleAdvanceDeliveryStage = () => {
+    if (!activeCommerceOrder) return;
+    const updatedOrder = advanceOrderDeliveryStage(activeCommerceOrder.id);
+    if (!updatedOrder) return;
+
+    const nextStage = getOrderDeliveryStage(updatedOrder);
+    if (isFinalDeliveryStage(nextStage)) {
+      if (driverStatus !== "online") setActiveTracking(null);
+      toast.success("تم إنهاء التوصيل بنجاح");
+      return;
+    }
+
+    toast.success("تم تحديث مرحلة التوصيل");
   };
 
   const toggleTheme = () => {
@@ -187,12 +311,15 @@ export function DriverDashboard({ user, onLogout }: DriverDashboardProps) {
               >
                 {activeView === "dashboard" && (
                   <DashboardHome
-                    completedTrips={completedTrips}
-                    totalEarnings={totalEarnings}
-                    averageRating={averageRating}
+                    stats={driverStats}
+                    dailyEarnings={dailyEarnings}
+                    isLoading={isDriverDataLoading}
                     driverStatus={driverStatus}
+                    onStatusChange={handleDriverStatusChange}
                     onOpenDrawer={setDrawer}
                     onGoOrders={() => setActiveView("orders")}
+                    onGoEarnings={() => setActiveView("earnings")}
+                    notifications={notifications}
                     deliveryOrders={deliveryOrders}
                     onAcceptDelivery={handleAcceptDelivery}
                     onCompleteDelivery={(id) => updateDeliveryOrder(id, "delivered", "تم تسليم الطلب")}
@@ -216,13 +343,17 @@ export function DriverDashboard({ user, onLogout }: DriverDashboardProps) {
                   <DeliverySection
                     currentOrder={activeOrder}
                     driverStatus={driverStatus}
-                    onStatusChange={setDriverStatus}
+                    onStatusChange={handleDriverStatusChange}
                     activeTracking={activeTracking}
+                    activeDeliveryStage={activeDeliveryStage}
+                    lastDriverCoords={lastDriverCoords}
+                    onAdvanceDeliveryStage={handleAdvanceDeliveryStage}
                     onCompleteTracking={handleCompleteTracking}
+                    onDriverLocationChange={setLastDriverCoords}
                   />
                 )}
-                {activeView === "earnings" && <EarningsDetails earnings={mockEarnings} />}
-                {activeView === "ratings"  && <RatingDetails ratings={mockRatings} averageRating={averageRating} />}
+                {activeView === "earnings" && <EarningsDetails earnings={dailyEarnings} />}
+                {activeView === "ratings"  && <RatingDetails ratings={mockRatings} averageRating={driverStats.averageRecentRating} />}
                 {activeView === "settings" && <SettingsPanel />}
               </motion.div>
             </AnimatePresence>
@@ -232,29 +363,52 @@ export function DriverDashboard({ user, onLogout }: DriverDashboardProps) {
 
       <DetailsDrawer isOpen={drawer !== null} onClose={() => setDrawer(null)} title={drawerTitle(drawer)}>
         {drawer === "trips"    && <TripsDetails trips={mockTrips} />}
-        {drawer === "earnings" && <EarningsDetails earnings={mockEarnings} />}
-        {drawer === "rating"   && <RatingDetails ratings={mockRatings} averageRating={averageRating} />}
-        {drawer === "hours"    && <WorkingHoursDetails startTime={new Date("2026-04-29T08:00:00")} breakTime={25} status={driverStatus} activity={mockActivity} />}
+        {drawer === "earnings" && <EarningsDetails earnings={dailyEarnings} />}
+        {drawer === "rating"   && <RatingDetails ratings={mockRatings} averageRating={driverStats.averageRecentRating} />}
+        {drawer === "hours"    && <WorkingHoursDetails startTime={new Date(workSession.startedAt)} breakTime={driverStats.breakMinutes} status={driverStatus} activity={mockActivity} />}
         {drawer === "order"    && selectedOrder && <OrderDetails order={selectedOrder} />}
       </DetailsDrawer>
     </div>
   );
 }
 
+function createTodayWorkSession(): DriverWorkSession {
+  const start = new Date();
+  start.setHours(8, 0, 0, 0);
+
+  const breakStart = new Date(start);
+  breakStart.setHours(10, 0, 0, 0);
+
+  return {
+    startedAt: start.toISOString(),
+    breaks: [
+      {
+        id: "morning-break",
+        startedAt: breakStart.toISOString(),
+        minutes: 25,
+      },
+    ],
+  };
+}
+
 // ── DashboardHome ─────────────────────────────────────────────────────────────
 
 function DashboardHome({
-  completedTrips, totalEarnings, averageRating, driverStatus,
-  onOpenDrawer, onGoOrders,
-  deliveryOrders, onAcceptDelivery, onCompleteDelivery,
+  stats, dailyEarnings, isLoading, driverStatus, onStatusChange,
+  onOpenDrawer, onGoOrders, onGoEarnings,
+  notifications,
+  deliveryOrders, onAcceptDelivery,
   rideOrders, onAcceptRide, onRejectRide, onCompleteRide,
 }: {
-  completedTrips: number;
-  totalEarnings: number;
-  averageRating: number;
+  stats: DriverStats;
+  dailyEarnings: DailyDriverEarnings;
+  isLoading: boolean;
   driverStatus: DriverStatus;
+  onStatusChange: (status: DriverStatus) => void;
   onOpenDrawer: (d: DrawerKind) => void;
   onGoOrders: () => void;
+  onGoEarnings: () => void;
+  notifications: DriverNotification[];
   deliveryOrders: CommerceOrder[];
   onAcceptDelivery: (id: string) => void;
   onCompleteDelivery: (id: string) => void;
@@ -263,6 +417,13 @@ function DashboardHome({
   onRejectRide: (id: string) => void;
   onCompleteRide: (id: string) => void;
 }) {
+  const hasIncomingOrders = rideOrders.length > 0 || deliveryOrders.length > 0;
+  const tripsHint = stats.hasActiveRide ? "مع رحلة نشطة الآن" : hasIncomingOrders ? "لا توجد رحلة نشطة الآن" : "لا توجد طلبات متاحة الآن";
+  const earningsHint = dailyEarnings.completedCount > 0 ? "من الطلبات والرحلات المكتملة" : "لا توجد أرباح اليوم";
+  const ratingValue = stats.recentRatingsCount > 0 ? stats.averageRecentRating.toFixed(1) : "لا يوجد";
+  const ratingHint = stats.recentRatingsCount > 0 ? `${stats.recentRatingsCount} تقييم حديث` : "لا توجد تقييمات حديثة";
+  const hoursHint = stats.breakMinutes > 0 ? `تشمل ${stats.breakMinutes} دقيقة استراحة` : "لا توجد استراحات مسجلة";
+
   return (
     <div className="space-y-6">
       <section className="overflow-hidden rounded-3xl border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(103,232,249,0.16),transparent_34%),linear-gradient(135deg,rgba(19,36,59,0.96),rgba(10,20,34,0.96))] p-5 shadow-2xl shadow-black/20 sm:p-6">
@@ -283,10 +444,11 @@ function DashboardHome({
                 {driverStatus === "online" ? "متصل" : driverStatus === "busy" ? "مشغول" : "غير متصل"}
               </span>
             </div>
+            <DriverStatusSelector status={driverStatus} onChange={onStatusChange} />
             <div className="mt-5 grid grid-cols-2 gap-3">
               <MiniDashboardMetric label="طلبات رحلات" value={String(rideOrders.length)} />
               <MiniDashboardMetric label="توصيل نشط"   value={String(deliveryOrders.length)} />
-              <MiniDashboardMetric label="تنبيهات"      value={mockNotifications.length.toString()} />
+              <MiniDashboardMetric label="تنبيهات"      value={notifications.length.toString()} />
               <MiniDashboardMetric label="قبول الطلبات" value="92%" />
             </div>
           </div>
@@ -294,10 +456,10 @@ function DashboardHome({
       </section>
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatsCard title="رحلات اليوم"  value={`${completedTrips}`}           hint="مع رحلة نشطة الآن"        icon={ListChecks} tone="cyan"    onClick={() => onOpenDrawer("trips")} />
-        <StatsCard title="أرباح اليوم"  value={`${totalEarnings.toFixed(0)} شيكل`} hint="بعد خصم عمولة المنصة" icon={Banknote}    tone="amber"   onClick={() => onOpenDrawer("earnings")} />
-        <StatsCard title="التقييم"       value={averageRating.toFixed(1)}       hint={`${mockRatings.length} تقييم حديث`} icon={Star} tone="cyan" onClick={() => onOpenDrawer("rating")} />
-        <StatsCard title="ساعات العمل"  value="6.2"                            hint="تشمل 25 دقيقة استراحة"   icon={Clock3}     tone="primary" onClick={() => onOpenDrawer("hours")} />
+        <StatsCard title="رحلات اليوم" value={`${stats.todayTripsCount}`} hint={tripsHint} icon={ListChecks} tone="cyan" onClick={() => onOpenDrawer("trips")} isLoading={isLoading} />
+        <StatsCard title="أرباح اليوم" value={`${dailyEarnings.totalEarnings.toFixed(0)} شيكل`} hint={earningsHint} icon={Banknote} tone="amber" onClick={onGoEarnings} isLoading={isLoading} />
+        <StatsCard title="التقييم" value={ratingValue} hint={ratingHint} icon={Star} tone="cyan" onClick={() => onOpenDrawer("rating")} isLoading={isLoading} />
+        <StatsCard title="ساعات العمل" value={stats.activeWorkingHours.toFixed(1)} hint={hoursHint} icon={Clock3} tone="primary" onClick={() => onOpenDrawer("hours")} isLoading={isLoading} />
       </section>
 
       {/* ── Ride requests ── */}
@@ -341,34 +503,20 @@ function DashboardHome({
         </div>
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-[1fr_0.8fr]">
-        <div className="rounded-2xl border border-white/10 bg-surface/85 p-5">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <h3 className="font-display text-lg font-bold">طلبات قريبة</h3>
-            <button onClick={onGoOrders} className="text-sm font-bold text-cyan hover:text-primary">إدارة الطلبات</button>
-          </div>
-          <div className="space-y-3">
-            {mockOrders.slice(0, 3).map((order) => (
-              <div key={order.id} className="flex flex-col gap-3 rounded-2xl border border-border bg-secondary/20 p-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="font-bold">{order.pickupLocation}</p>
-                  <p className="mt-1 text-sm text-muted-foreground">إلى {order.deliveryLocation}</p>
-                </div>
-                <span className="font-display text-xl font-bold text-primary">{order.price} شيكل</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
+      <section>
         <div className="rounded-2xl border border-white/10 bg-surface/85 p-5">
           <div className="mb-4 flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-primary" />
             <h3 className="font-display text-lg font-bold">تنبيهات اليوم</h3>
           </div>
           <div className="space-y-3">
-            {mockNotifications.map((n) => (
-              <div key={n} className="rounded-xl border border-border bg-secondary/20 p-3 text-sm text-muted-foreground">{n}</div>
-            ))}
+            {notifications.length > 0 ? (
+              notifications.map((notification) => (
+                <div key={notification.id} className="rounded-xl border border-border bg-secondary/20 p-3 text-sm text-muted-foreground">{notification.message}</div>
+              ))
+            ) : (
+              <div className="rounded-xl border border-border bg-secondary/20 p-3 text-sm text-muted-foreground">لا توجد تنبيهات اليوم.</div>
+            )}
           </div>
         </div>
       </section>
@@ -390,12 +538,41 @@ function DashboardHome({
               </div>
               <div className="flex gap-2">
                 <button onClick={() => onAcceptDelivery(order.id)} className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground">قبول والتوجه</button>
-                <button onClick={() => onCompleteDelivery(order.id)} className="rounded-xl border border-border bg-secondary/50 px-4 py-2 text-xs font-bold">تم التسليم</button>
               </div>
             </div>
           ))}
         </div>
       </section>
+    </div>
+  );
+}
+
+function DriverStatusSelector({ status, onChange }: { status: DriverStatus; onChange: (status: DriverStatus) => void }) {
+  const options: { value: DriverStatus; label: string }[] = [
+    { value: "online", label: "متصل" },
+    { value: "busy", label: "مشغول" },
+    { value: "offline", label: "غير متصل" },
+  ];
+
+  return (
+    <div className="mt-4 rounded-xl border border-border bg-secondary/20 p-3">
+      <p className="text-xs font-bold text-muted-foreground">حالة السائق</p>
+      <div className="mt-3 grid grid-cols-3 gap-2">
+        {options.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            onClick={() => onChange(option.value)}
+            className={`rounded-lg border px-2 py-2 text-xs font-bold transition ${
+              status === option.value
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-border bg-background/30 text-muted-foreground hover:border-cyan/40 hover:text-foreground"
+            }`}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

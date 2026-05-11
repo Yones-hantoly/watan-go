@@ -9,9 +9,10 @@ interface StatsCardProps {
   icon: LucideIcon;
   tone: "primary" | "cyan" | "amber";
   onClick: () => void;
+  isLoading?: boolean;
 }
 
-export function StatsCard({ title, value, hint, icon: Icon, tone, onClick }: StatsCardProps) {
+export function StatsCard({ title, value, hint, icon: Icon, tone, onClick, isLoading = false }: StatsCardProps) {
   return (
     <motion.button
       type="button"
@@ -31,17 +32,21 @@ export function StatsCard({ title, value, hint, icon: Icon, tone, onClick }: Sta
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-sm text-muted-foreground">{title}</p>
-          <p
-            className={cn(
-              "mt-2 font-display text-3xl font-bold",
-              tone === "primary" && "text-primary",
-              tone === "cyan" && "text-cyan",
-              tone === "amber" && "text-amber",
-            )}
-          >
-            {value}
-          </p>
-          <p className="mt-2 text-xs text-muted-foreground">{hint}</p>
+          {isLoading ? (
+            <div className="mt-3 h-9 w-24 animate-pulse rounded-lg bg-secondary/60" />
+          ) : (
+            <p
+              className={cn(
+                "mt-2 font-display text-3xl font-bold",
+                tone === "primary" && "text-primary",
+                tone === "cyan" && "text-cyan",
+                tone === "amber" && "text-amber",
+              )}
+            >
+              {value}
+            </p>
+          )}
+          <p className="mt-2 text-xs text-muted-foreground">{isLoading ? "جاري تحميل بيانات السائق..." : hint}</p>
         </div>
         <span
           className={cn(

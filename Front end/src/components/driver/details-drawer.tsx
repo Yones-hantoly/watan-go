@@ -1,12 +1,12 @@
-import { type ReactNode, useMemo, useState } from "react";
+import { type ReactNode, useState } from "react";
 import { Star, X } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { type DailyDriverEarnings } from "@/lib/driver-earnings";
 import {
   type ActivityEvent,
   type DriverRating,
   type DriverStatus,
-  type Earning,
   type Trip,
 } from "@/lib/driver-mock-data";
 
@@ -89,57 +89,50 @@ export function TripsDetails({ trips }: { trips: Trip[] }) {
   );
 }
 
-export function EarningsDetails({ earnings }: { earnings: Earning[] }) {
-  const totals = useMemo(
-    () =>
-      earnings.reduce(
-        (acc, item) => ({
-          delivery: acc.delivery + item.deliveryEarnings,
-          bonus: acc.bonus + item.bonus,
-          commission: acc.commission + item.commission,
-          net: acc.net + item.netProfit,
-        }),
-        { delivery: 0, bonus: 0, commission: 0, net: 0 },
-      ),
-    [earnings],
-  );
-
+export function EarningsDetails({ earnings }: { earnings: DailyDriverEarnings }) {
   return (
     <div className="space-y-6">
+      <div>
+        <h2 className="font-display text-2xl font-bold">تفاصيل أرباح اليوم</h2>
+        <p className="mt-1 text-sm text-muted-foreground">محسوبة من الرحلات والطلبات المكتملة اليوم لهذا السائق.</p>
+      </div>
+
       <div className="rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/20 to-cyan/10 p-5">
         <p className="text-sm text-muted-foreground">إجمالي أرباح اليوم</p>
-        <p className="mt-2 font-display text-4xl font-bold text-primary">{totals.net.toFixed(0)} شيكل</p>
+        <p className="mt-2 font-display text-4xl font-bold text-primary">{earnings.totalEarnings.toFixed(0)} شيكل</p>
       </div>
+
       <div className="grid gap-3 sm:grid-cols-2">
-        <Metric label="أرباح التوصيل" value={`${totals.delivery.toFixed(0)} شيكل`} tone="amber" />
-        <Metric label="الحوافز" value={`${totals.bonus.toFixed(0)} شيكل`} tone="cyan" />
-        <Metric label="عمولة المنصة" value={`${totals.commission.toFixed(1)} شيكل`} tone="red" />
-        <Metric label="صافي الربح" value={`${totals.net.toFixed(0)} شيكل`} tone="primary" />
+        <Metric label="عدد الطلبات المكتملة" value={earnings.completedCount} tone="cyan" />
+        <Metric label="إجمالي أرباح اليوم" value={`${earnings.totalEarnings.toFixed(0)} شيكل`} tone="primary" />
       </div>
-      <div className="overflow-x-auto rounded-2xl border border-border">
-        <table className="w-full min-w-[520px] text-sm">
-          <thead className="bg-secondary/40 text-muted-foreground">
-            <tr>
-              <th className="px-4 py-3 text-right">الطلب</th>
-              <th className="px-4 py-3 text-center">التوصيل</th>
-              <th className="px-4 py-3 text-center">الحافز</th>
-              <th className="px-4 py-3 text-center">العمولة</th>
-              <th className="px-4 py-3 text-center">الصافي</th>
-            </tr>
-          </thead>
-          <tbody>
-            {earnings.map((item) => (
-              <tr key={item.id} className="border-t border-border/60">
-                <td className="px-4 py-3 font-bold text-cyan">{item.orderId}</td>
-                <td className="px-4 py-3 text-center">{item.deliveryEarnings}</td>
-                <td className="px-4 py-3 text-center text-amber">+{item.bonus}</td>
-                <td className="px-4 py-3 text-center text-red-400">-{item.commission}</td>
-                <td className="px-4 py-3 text-center font-bold text-primary">{item.netProfit}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+
+      {earnings.items.length === 0 ? (
+        <div className="rounded-2xl border border-border bg-secondary/20 p-5 text-sm text-muted-foreground">لا توجد أرباح اليوم.</div>
+      ) : (
+        <div className="space-y-3">
+          {earnings.items.map((item) => (
+            <div key={`${item.type}-${item.id}`} className="rounded-2xl border border-border bg-secondary/20 p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0 space-y-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-bold text-cyan">{item.id}</span>
+                    <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-bold text-primary">
+                      {item.type === "ride" ? "رحلة" : "توصيل"}
+                    </span>
+                  </div>
+                  <p className="text-sm font-semibold">{item.pickup}</p>
+                  <p className="text-sm text-muted-foreground">إلى {item.destination}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {new Date(item.completedAt).toLocaleTimeString("ar", { hour: "2-digit", minute: "2-digit" })}
+                  </p>
+                </div>
+                <span className="font-display text-xl font-bold text-primary">{item.fare.toFixed(0)} شيكل</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

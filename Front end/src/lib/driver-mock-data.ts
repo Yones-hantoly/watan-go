@@ -31,15 +31,6 @@ export interface Trip {
   time: string;
 }
 
-export interface Earning {
-  id: string;
-  orderId: string;
-  deliveryEarnings: number;
-  bonus: number;
-  commission: number;
-  netProfit: number;
-}
-
 export interface DriverRating {
   id: string;
   customerName: string;
@@ -149,13 +140,6 @@ export const mockTrips: Trip[] = [
   { id: "T-121", pickupLocation: "كافيه البلد", deliveryLocation: "المصيون", distance: 4.6, duration: 24, amount: 28, status: "active", time: "10:55 ص" },
 ];
 
-export const mockEarnings: Earning[] = [
-  { id: "E-1", orderId: "WG-2396", deliveryEarnings: 22, bonus: 4, commission: 2.5, netProfit: 23.5 },
-  { id: "E-2", orderId: "WG-2398", deliveryEarnings: 18, bonus: 0, commission: 2, netProfit: 16 },
-  { id: "E-3", orderId: "WG-2401", deliveryEarnings: 30, bonus: 6, commission: 3.5, netProfit: 32.5 },
-  { id: "E-4", orderId: "WG-2404", deliveryEarnings: 26, bonus: 3, commission: 3, netProfit: 26 },
-];
-
 export const mockRatings: DriverRating[] = [
   { id: "R-1", customerName: "ليان منصور", rating: 5, comment: "سائق محترم ووصل الطلب بسرعة.", timestamp: "2026-04-29T09:45:00" },
   { id: "R-2", customerName: "سارة عابد", rating: 5, comment: "تواصل ممتاز والتسليم كان مرتب.", timestamp: "2026-04-29T08:55:00" },
@@ -186,8 +170,3 @@ export const mockActivity: ActivityEvent[] = [
   { id: "A-3", label: "طلب نشط", time: "10:38 ص", tone: "primary" },
 ];
 
-export const mockNotifications = [
-  "طلب جديد قريب منك في رام الله",
-  "تم إضافة حافز 4 شيكل لرحلتك الأخيرة",
-  "الدعم متاح الآن للرد على استفسارك",
-];

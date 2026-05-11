@@ -20,6 +20,10 @@ export interface TrackingOrder {
 interface Props {
   order: TrackingOrder;
   onComplete: () => void;
+  canComplete?: boolean;
+  completeLabel?: string;
+  initialDriverCoords?: { lat: number; lng: number } | null;
+  onDriverLocationChange?: (coords: { lat: number; lng: number }) => void;
 }
 
 // ── Haversine ─────────────────────────────────────────────────────────────────
@@ -68,7 +72,14 @@ function pinIconHtml(color: string, emoji: string) {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function LiveTrackingMap({ order, onComplete }: Props) {
+export function LiveTrackingMap({
+  order,
+  onComplete,
+  canComplete = true,
+  completeLabel = "إنهاء الطلب",
+  initialDriverCoords,
+  onDriverLocationChange,
+}: Props) {
   const containerRef   = useRef<HTMLDivElement>(null);
   const mapRef         = useRef<L.Map | null>(null);
   const leafletRef     = useRef<typeof L | null>(null);
@@ -159,7 +170,9 @@ export function LiveTrackingMap({ order, onComplete }: Props) {
     const map = mapRef.current;
     if (!lf || !map) return;
 
-    setDriverCoords({ lat, lng });
+    const nextCoords = { lat, lng };
+    setDriverCoords(nextCoords);
+    onDriverLocationChange?.(nextCoords);
 
     if (driverMarkerRef.current) {
       driverMarkerRef.current.setLatLng([lat, lng]);
@@ -191,7 +204,12 @@ export function LiveTrackingMap({ order, onComplete }: Props) {
     if (target) {
       setDistRemaining(haversineKm({ lat, lng }, target));
     }
-  }, [order.pickupCoords, destCoords]);
+  }, [order.pickupCoords, destCoords, onDriverLocationChange]);
+
+  useEffect(() => {
+    if (!mapReady || !initialDriverCoords || driverCoords) return;
+    updateDriverPosition(initialDriverCoords.lat, initialDriverCoords.lng);
+  }, [driverCoords, initialDriverCoords, mapReady, updateDriverPosition]);
 
   useEffect(() => {
     if (!mapReady) return;
@@ -317,9 +335,10 @@ export function LiveTrackingMap({ order, onComplete }: Props) {
         <button
           type="button"
           onClick={onComplete}
-          className="w-full rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-500/30 transition hover:opacity-90"
+          disabled={!canComplete}
+          className="w-full rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-500/30 transition hover:opacity-90 disabled:cursor-not-allowed disabled:from-secondary disabled:to-secondary disabled:text-muted-foreground disabled:shadow-none"
         >
-          ✓ تأكيد إتمام التوصيل
+          {canComplete ? completeLabel : "أكمل مراحل التوصيل أولاً"}
         </button>
       </div>
     </div>

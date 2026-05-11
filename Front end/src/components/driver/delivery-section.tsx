@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CheckCircle2, Clock, MapPin, Navigation, PackageCheck, RadioTower } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { type DriverStatus, type Order } from "@/lib/driver-mock-data";
+import { DELIVERY_STAGES, isFinalDeliveryStage, type DeliveryStage } from "@/lib/delivery-flow";
 import { LiveTrackingMap, type TrackingOrder } from "@/components/driver/LiveTrackingMap";
 
 interface DeliverySectionProps {
@@ -10,7 +11,11 @@ interface DeliverySectionProps {
   driverStatus: DriverStatus;
   onStatusChange: (status: DriverStatus) => void;
   activeTracking?: TrackingOrder | null;
+  activeDeliveryStage?: DeliveryStage | null;
+  lastDriverCoords?: { lat: number; lng: number } | null;
+  onAdvanceDeliveryStage?: () => void;
   onCompleteTracking?: () => void;
+  onDriverLocationChange?: (coords: { lat: number; lng: number }) => void;
 }
 
 export function DeliverySection({
@@ -18,8 +23,18 @@ export function DeliverySection({
   driverStatus,
   onStatusChange,
   activeTracking,
+  activeDeliveryStage,
+  lastDriverCoords,
+  onAdvanceDeliveryStage,
   onCompleteTracking,
+  onDriverLocationChange,
 }: DeliverySectionProps) {
+  const activeDelivery = Boolean(activeTracking || currentOrder);
+  const isConnected = driverStatus === "online";
+  const isDelivered = Boolean(activeDeliveryStage && isFinalDeliveryStage(activeDeliveryStage));
+  const canShowDeliveryUI = driverStatus === "online" && activeDelivery && driverStatus !== "busy";
+  const showMap = isConnected || !isDelivered;
+
   return (
     <section className="space-y-6">
       <div>
@@ -40,22 +55,66 @@ export function DeliverySection({
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-        <div className="space-y-6">
-          {/* Live tracking map — shown when driver accepted an order */}
-          {activeTracking ? (
-            <LiveTrackingMap
-              order={activeTracking}
-              onComplete={onCompleteTracking ?? (() => {})}
+        {canShowDeliveryUI ? (
+          <>
+            <div className="space-y-6">
+              {/* Live tracking map — shown when driver accepted an order */}
+              {activeTracking && showMap ? (
+                <LiveTrackingMap
+                  order={activeTracking}
+                  onComplete={onCompleteTracking ?? (() => {})}
+                  canComplete={!activeDeliveryStage || isFinalDeliveryStage(activeDeliveryStage)}
+                  completeLabel="إنهاء الطلب"
+                  initialDriverCoords={lastDriverCoords}
+                  onDriverLocationChange={onDriverLocationChange}
+                />
+              ) : activeTracking && isDelivered ? (
+                <CompletedDeliveryOffline />
+              ) : currentOrder ? (
+                <ActiveDelivery order={currentOrder} />
+              ) : (
+                <NoActiveDelivery />
+              )}
+            </div>
+            <DeliveryTimeline
+              activeStage={activeDeliveryStage ?? null}
+              hasActiveOrder={activeDelivery}
+              onNext={onAdvanceDeliveryStage}
+              onFinish={onCompleteTracking}
             />
-          ) : currentOrder ? (
-            <ActiveDelivery order={currentOrder} />
-          ) : (
+          </>
+        ) : isConnected ? (
+          <div className="xl:col-span-2">
             <NoActiveDelivery />
-          )}
-        </div>
-        <DeliveryTimeline />
+          </div>
+        ) : (
+          <DriverAvailabilityMessage status={driverStatus} />
+        )}
       </div>
     </section>
+  );
+}
+
+function DriverAvailabilityMessage({ status }: { status: DriverStatus }) {
+  const isBusy = status === "busy";
+
+  return (
+    <div className="xl:col-span-2 rounded-2xl border border-dashed border-border bg-secondary/15 p-10 text-center">
+      <RadioTower className={cn("mx-auto h-12 w-12", isBusy ? "text-amber" : "text-muted-foreground/60")} />
+      <p className="mt-3 font-display text-lg font-bold">
+        {isBusy ? "أنت مشغول حالياً. أنهِ الطلب الحالي لتستقبل طلباً جديداً." : "أنت غير متصل. فعّل الاتصال للبدء باستقبال الطلبات."}
+      </p>
+    </div>
+  );
+}
+
+function CompletedDeliveryOffline() {
+  return (
+    <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-6 text-center">
+      <PackageCheck className="mx-auto h-12 w-12 text-emerald-500" />
+      <p className="mt-3 font-display text-lg font-bold text-emerald-500">تم التسليم بنجاح</p>
+      <p className="mt-1 text-sm text-muted-foreground">الخريطة محفوظة بآخر موقع معروف، وستظهر مجدداً عند عودة السائق للاتصال.</p>
+    </div>
   );
 }
 
@@ -92,38 +151,99 @@ function NoActiveDelivery() {
   );
 }
 
-function DeliveryTimeline() {
-  const [activeStep, setActiveStep] = useState(3);
-  const steps = ["تم قبول الطلب", "وصل إلى نقطة الاستلام", "تم استلام الطلب", "في الطريق", "تم التسليم بنجاح"];
+function DeliveryTimeline({
+  activeStage,
+  hasActiveOrder,
+  onNext,
+  onFinish,
+}: {
+  activeStage: DeliveryStage | null;
+  hasActiveOrder: boolean;
+  onNext?: () => void;
+  onFinish?: () => void;
+}) {
+  const [currentStep, setCurrentStep] = useState(1);
+
+  useEffect(() => {
+    if (!activeStage) return;
+    const nextIndex = DELIVERY_STAGES.findIndex((step) => step.id === activeStage);
+    if (nextIndex >= 0) setCurrentStep(nextIndex + 1);
+  }, [activeStage]);
+
+  const activeIndex = Math.min(currentStep, DELIVERY_STAGES.length) - 1;
+  const displayedStage = DELIVERY_STAGES[activeIndex]?.id ?? DELIVERY_STAGES[0].id;
+  const final = isFinalDeliveryStage(displayedStage);
+
+  const handleNext = () => {
+    if (final) return;
+
+    if (activeStage && onNext) {
+      onNext();
+      return;
+    }
+
+    setCurrentStep((step) => Math.min(DELIVERY_STAGES.length, step + 1));
+  };
 
   return (
     <div className="rounded-2xl border border-white/10 bg-surface/85 p-5">
-      <h3 className="font-display text-lg font-bold">تقدم التوصيل</h3>
-      <div className="mt-5 space-y-1">
-        {steps.map((step, index) => {
-          const current = index + 1;
-          const done = activeStep >= current;
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="font-display text-lg font-bold">تقدم التوصيل</h3>
+        {hasActiveOrder && (
+          <span className="rounded-full bg-primary/15 px-3 py-1 text-xs font-bold text-primary">
+            {currentStep}/{DELIVERY_STAGES.length}
+          </span>
+        )}
+      </div>
+      {!hasActiveOrder ? (
+        <div className="mt-5 rounded-xl border border-dashed border-border bg-secondary/20 p-4 text-sm text-muted-foreground">
+          لا يوجد طلب نشط لعرض مسار التوصيل.
+        </div>
+      ) : (
+        <div className="mt-5 space-y-1">
+          {DELIVERY_STAGES.map((step, index) => {
+          const done = activeIndex > index || final;
+          const current = activeIndex === index && !final;
           return (
-            <motion.div key={step} initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: index * 0.05 }} className="flex gap-3">
+            <motion.div key={step.id} initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: index * 0.05 }} className="flex gap-3">
               <div className="flex flex-col items-center">
-                <span className={cn("flex h-9 w-9 items-center justify-center rounded-full border text-xs font-bold",
-                  done ? "border-primary bg-primary/20 text-primary" : "border-border bg-secondary text-muted-foreground")}>
-                  {done ? <CheckCircle2 className="h-4 w-4" /> : current}
+                <span className={cn(
+                  "flex h-9 w-9 items-center justify-center rounded-full border text-xs font-bold transition",
+                  done && "border-emerald-500 bg-emerald-500/15 text-emerald-500",
+                  current && "border-primary bg-primary text-primary-foreground shadow-lg shadow-primary/25",
+                  !done && !current && "border-border bg-secondary text-muted-foreground",
+                )}>
+                  {done ? <CheckCircle2 className="h-4 w-4" /> : index + 1}
                 </span>
-                {index < steps.length - 1 && <span className={cn("h-10 w-px", activeStep > current ? "bg-primary" : "bg-border")} />}
+                {index < DELIVERY_STAGES.length - 1 && <span className={cn("h-10 w-px", activeIndex > index || final ? "bg-emerald-500" : "bg-border")} />}
               </div>
               <div className="pt-2">
-                <p className={cn("font-bold", done ? "text-foreground" : "text-muted-foreground")}>{step}</p>
-                {activeStep === current && <p className="mt-1 text-xs text-cyan">جاري الآن</p>}
+                <p className={cn("font-bold", done || current ? "text-foreground" : "text-muted-foreground")}>{step.label}</p>
+                {current && <p className="mt-1 text-xs text-cyan">جاري الآن</p>}
+                {done && <p className="mt-1 text-xs text-emerald-500">مكتملة</p>}
               </div>
             </motion.div>
           );
         })}
-      </div>
-      <div className="mt-5 flex gap-2 border-t border-border/70 pt-4">
-        <button onClick={() => setActiveStep((s) => Math.max(1, s - 1))} className="flex-1 rounded-xl border border-border bg-secondary/40 px-3 py-2 text-sm font-bold transition hover:border-primary/40">السابق</button>
-        <button onClick={() => setActiveStep((s) => Math.min(5, s + 1))} className="flex-1 rounded-xl bg-primary px-3 py-2 text-sm font-bold text-primary-foreground transition hover:bg-primary/90">التالي</button>
-      </div>
+        </div>
+      )}
+      {hasActiveOrder && (
+        <div className="mt-5 border-t border-border/70 pt-4">
+          {final ? (
+            <button
+              onClick={onFinish}
+              disabled={!onFinish}
+              className="w-full rounded-xl bg-emerald-600 px-3 py-2 text-sm font-bold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              تم
+            </button>
+          ) : (
+            <button onClick={handleNext} className="w-full rounded-xl bg-primary px-3 py-2 text-sm font-bold text-primary-foreground transition hover:bg-primary/90">
+              التالي
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

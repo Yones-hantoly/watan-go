@@ -113,7 +113,14 @@ export interface RideOrder {
   driverPhone: string | null;
   createdAt: string;
   updatedAt: string;
+  completedAt?: string;
 }
+
+export type DriverAvailabilityStatus = "online" | "offline" | "busy";
+
+export type AcceptRideResult =
+  | { ok: true; ride: RideOrder }
+  | { ok: false; message: string };
 
 // ── Storage keys & event ──────────────────────────────────────────────────────
 
@@ -190,13 +197,46 @@ export function createRideOrder(
 }
 
 export function updateRideStatus(id: string, status: RideStatus, extra?: { driverName?: string; driverPhone?: string }) {
+  const now = new Date().toISOString();
   saveRideOrders(
     getRideOrders().map((o) =>
       o.id === id
-        ? { ...o, status, ...extra, updatedAt: new Date().toISOString() }
+        ? { ...o, status, ...extra, updatedAt: now, completedAt: status === "completed" ? now : o.completedAt }
         : o,
     ),
   );
+}
+
+export function acceptRideOrder(params: {
+  rideId: string;
+  driver: Pick<AuthUser, "name" | "phone">;
+  driverStatus: DriverAvailabilityStatus;
+}): AcceptRideResult {
+  if (params.driverStatus === "offline") {
+    return { ok: false, message: "أنت غير متصل ولا تستطيع قبول الرحلة." };
+  }
+
+  if (params.driverStatus === "busy") {
+    return { ok: false, message: "أنت مشغول حالياً ولا تستطيع قبول الرحلة." };
+  }
+
+  const rideOrders = getRideOrders();
+  const ride = rideOrders.find((item) => item.id === params.rideId);
+  if (!ride || ride.status !== "pending") {
+    return { ok: false, message: "هذه الرحلة غير متاحة للقبول." };
+  }
+
+  const now = new Date().toISOString();
+  const acceptedRide: RideOrder = {
+    ...ride,
+    status: "accepted",
+    driverName: params.driver.name,
+    driverPhone: params.driver.phone,
+    updatedAt: now,
+  };
+
+  saveRideOrders(rideOrders.map((item) => (item.id === params.rideId ? acceptedRide : item)));
+  return { ok: true, ride: acceptedRide };
 }
 
 export function assignDriver(id: string, driverName: string, driverPhone: string) {

@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { DashboardShell, StatCard } from "@/components/dashboard-shell";
 import { Car, UtensilsCrossed, Store, MapPin, Clock, Navigation } from "lucide-react";
-import { getOrders, type Order } from "@/lib/commerce";
+import { getOrders, subscribeToOrders, type Order } from "@/lib/commerce";
 import { getRideOrders, subscribeToRideOrders, type RideOrder, RIDE_STATUS_LABELS, RIDE_STATUS_COLORS } from "@/lib/ride-orders";
 
 export const Route = createFileRoute("/dashboard/customer")({
@@ -23,8 +23,15 @@ function CustomerDashboard({ user }: { user: { name: string; phone: string } }) 
       setRideOrders(getRideOrders().filter((o) => o.user.phone === user.phone));
     };
     load();
-    return subscribeToRideOrders(load);
+    const unsubscribeOrders = subscribeToOrders(load);
+    const unsubscribeRides = subscribeToRideOrders(load);
+    return () => {
+      unsubscribeOrders();
+      unsubscribeRides();
+    };
   }, [user.phone]);
+
+  const deliveredOrders = orders.filter((order) => order.status === "delivered");
 
   return (
         <div className="space-y-8">
@@ -46,6 +53,11 @@ function CustomerDashboard({ user }: { user: { name: string; phone: string } }) 
 
           <section className="card-elevated p-6">
             <h2 className="font-display text-xl font-bold">طلباتي</h2>
+            {deliveredOrders.length > 0 && (
+              <div className="mt-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm font-bold text-emerald-500">
+                تم تسليم طلبك بنجاح 🎉
+              </div>
+            )}
             <div className="mt-4 divide-y divide-border/40">
               {orders.length === 0 ? (
                 <div className="py-4 text-sm text-muted-foreground">لا توجد طلبات بعد.</div>
