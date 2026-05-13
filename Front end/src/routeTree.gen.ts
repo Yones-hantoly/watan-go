@@ -31,6 +31,8 @@ import { Route as DashboardRestaurantRouteImport } from './routes/dashboard.rest
 import { Route as DashboardDriverRouteImport } from './routes/dashboard.driver'
 import { Route as DashboardCustomerRouteImport } from './routes/dashboard.customer'
 import { Route as DashboardAdminRouteImport } from './routes/dashboard.admin'
+import { Route as DashboardRestaurantOrdersRouteImport } from './routes/dashboard.restaurant.orders'
+import { Route as DashboardRestaurantMenuRouteImport } from './routes/dashboard.restaurant.menu'
 
 const UsersRoute = UsersRouteImport.update({
   id: '/users',
@@ -142,6 +144,17 @@ const DashboardAdminRoute = DashboardAdminRouteImport.update({
   path: '/dashboard/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DashboardRestaurantOrdersRoute =
+  DashboardRestaurantOrdersRouteImport.update({
+    id: '/orders',
+    path: '/orders',
+    getParentRoute: () => DashboardRestaurantRoute,
+  } as any)
+const DashboardRestaurantMenuRoute = DashboardRestaurantMenuRouteImport.update({
+  id: '/menu',
+  path: '/menu',
+  getParentRoute: () => DashboardRestaurantRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -162,10 +175,12 @@ export interface FileRoutesByFullPath {
   '/dashboard/admin': typeof DashboardAdminRoute
   '/dashboard/customer': typeof DashboardCustomerRoute
   '/dashboard/driver': typeof DashboardDriverRoute
-  '/dashboard/restaurant': typeof DashboardRestaurantRoute
+  '/dashboard/restaurant': typeof DashboardRestaurantRouteWithChildren
   '/dashboard/shop': typeof DashboardShopRoute
   '/menu/$restaurantSlug': typeof MenuRestaurantSlugRoute
   '/restaurants/$id': typeof RestaurantsIdRoute
+  '/dashboard/restaurant/menu': typeof DashboardRestaurantMenuRoute
+  '/dashboard/restaurant/orders': typeof DashboardRestaurantOrdersRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -186,10 +201,12 @@ export interface FileRoutesByTo {
   '/dashboard/admin': typeof DashboardAdminRoute
   '/dashboard/customer': typeof DashboardCustomerRoute
   '/dashboard/driver': typeof DashboardDriverRoute
-  '/dashboard/restaurant': typeof DashboardRestaurantRoute
+  '/dashboard/restaurant': typeof DashboardRestaurantRouteWithChildren
   '/dashboard/shop': typeof DashboardShopRoute
   '/menu/$restaurantSlug': typeof MenuRestaurantSlugRoute
   '/restaurants/$id': typeof RestaurantsIdRoute
+  '/dashboard/restaurant/menu': typeof DashboardRestaurantMenuRoute
+  '/dashboard/restaurant/orders': typeof DashboardRestaurantOrdersRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -211,10 +228,12 @@ export interface FileRoutesById {
   '/dashboard/admin': typeof DashboardAdminRoute
   '/dashboard/customer': typeof DashboardCustomerRoute
   '/dashboard/driver': typeof DashboardDriverRoute
-  '/dashboard/restaurant': typeof DashboardRestaurantRoute
+  '/dashboard/restaurant': typeof DashboardRestaurantRouteWithChildren
   '/dashboard/shop': typeof DashboardShopRoute
   '/menu/$restaurantSlug': typeof MenuRestaurantSlugRoute
   '/restaurants/$id': typeof RestaurantsIdRoute
+  '/dashboard/restaurant/menu': typeof DashboardRestaurantMenuRoute
+  '/dashboard/restaurant/orders': typeof DashboardRestaurantOrdersRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -241,6 +260,8 @@ export interface FileRouteTypes {
     | '/dashboard/shop'
     | '/menu/$restaurantSlug'
     | '/restaurants/$id'
+    | '/dashboard/restaurant/menu'
+    | '/dashboard/restaurant/orders'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -265,6 +286,8 @@ export interface FileRouteTypes {
     | '/dashboard/shop'
     | '/menu/$restaurantSlug'
     | '/restaurants/$id'
+    | '/dashboard/restaurant/menu'
+    | '/dashboard/restaurant/orders'
   id:
     | '__root__'
     | '/'
@@ -289,6 +312,8 @@ export interface FileRouteTypes {
     | '/dashboard/shop'
     | '/menu/$restaurantSlug'
     | '/restaurants/$id'
+    | '/dashboard/restaurant/menu'
+    | '/dashboard/restaurant/orders'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -310,7 +335,7 @@ export interface RootRouteChildren {
   DashboardAdminRoute: typeof DashboardAdminRoute
   DashboardCustomerRoute: typeof DashboardCustomerRoute
   DashboardDriverRoute: typeof DashboardDriverRoute
-  DashboardRestaurantRoute: typeof DashboardRestaurantRoute
+  DashboardRestaurantRoute: typeof DashboardRestaurantRouteWithChildren
   DashboardShopRoute: typeof DashboardShopRoute
   MenuRestaurantSlugRoute: typeof MenuRestaurantSlugRoute
 }
@@ -471,6 +496,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardAdminRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/dashboard/restaurant/orders': {
+      id: '/dashboard/restaurant/orders'
+      path: '/orders'
+      fullPath: '/dashboard/restaurant/orders'
+      preLoaderRoute: typeof DashboardRestaurantOrdersRouteImport
+      parentRoute: typeof DashboardRestaurantRoute
+    }
+    '/dashboard/restaurant/menu': {
+      id: '/dashboard/restaurant/menu'
+      path: '/menu'
+      fullPath: '/dashboard/restaurant/menu'
+      preLoaderRoute: typeof DashboardRestaurantMenuRouteImport
+      parentRoute: typeof DashboardRestaurantRoute
+    }
   }
 }
 
@@ -485,6 +524,19 @@ const RestaurantsRouteChildren: RestaurantsRouteChildren = {
 const RestaurantsRouteWithChildren = RestaurantsRoute._addFileChildren(
   RestaurantsRouteChildren,
 )
+
+interface DashboardRestaurantRouteChildren {
+  DashboardRestaurantMenuRoute: typeof DashboardRestaurantMenuRoute
+  DashboardRestaurantOrdersRoute: typeof DashboardRestaurantOrdersRoute
+}
+
+const DashboardRestaurantRouteChildren: DashboardRestaurantRouteChildren = {
+  DashboardRestaurantMenuRoute: DashboardRestaurantMenuRoute,
+  DashboardRestaurantOrdersRoute: DashboardRestaurantOrdersRoute,
+}
+
+const DashboardRestaurantRouteWithChildren =
+  DashboardRestaurantRoute._addFileChildren(DashboardRestaurantRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
@@ -505,7 +557,7 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardAdminRoute: DashboardAdminRoute,
   DashboardCustomerRoute: DashboardCustomerRoute,
   DashboardDriverRoute: DashboardDriverRoute,
-  DashboardRestaurantRoute: DashboardRestaurantRoute,
+  DashboardRestaurantRoute: DashboardRestaurantRouteWithChildren,
   DashboardShopRoute: DashboardShopRoute,
   MenuRestaurantSlugRoute: MenuRestaurantSlugRoute,
 }

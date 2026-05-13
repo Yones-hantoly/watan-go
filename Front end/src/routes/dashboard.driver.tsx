@@ -1,8 +1,8 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { toast } from "sonner";
 import { DriverDashboard } from "@/components/driver/driver-dashboard";
-import { clearAuth, getAuth, redirectToOwnDashboard, type AuthUser } from "@/lib/auth";
+import { clearAuth, redirectToOwnDashboard, useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/dashboard/driver")({
   component: DriverDashboardRoute,
@@ -10,11 +10,10 @@ export const Route = createFileRoute("/dashboard/driver")({
 
 function DriverDashboardRoute() {
   const navigate = useNavigate();
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [ready, setReady] = useState(false);
+  const user = useAuth();
 
   useEffect(() => {
-    const currentUser = getAuth();
+    const currentUser = user;
 
     if (!currentUser) {
       toast.error("يجب تسجيل الدخول أولا");
@@ -28,9 +27,7 @@ function DriverDashboardRoute() {
       return;
     }
 
-    setUser(currentUser);
-    setReady(true);
-  }, [navigate]);
+  }, [navigate, user]);
 
   const handleLogout = () => {
     clearAuth();
@@ -38,7 +35,7 @@ function DriverDashboardRoute() {
     navigate({ to: "/login" });
   };
 
-  if (!ready || !user) {
+  if (!user || user.role !== "driver") {
     return (
       <div dir="rtl" className="flex min-h-screen items-center justify-center bg-background text-muted-foreground">
         <div className="space-y-3 text-center">

@@ -1,16 +1,17 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Car, ShoppingCart, Store, UtensilsCrossed } from "lucide-react";
+import { Car, LogOut, ShoppingCart, Store, UtensilsCrossed } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { getAuth, getDashboardNavLinks, type AuthUser } from "@/lib/auth";
+import { clearAuth, getDashboardNavLinks, useAuth } from "@/lib/auth";
 import { getCartCount, subscribeToCart } from "@/lib/commerce";
+import { toast } from "sonner";
 
 export function Header() {
-  const [user, setUser] = useState<AuthUser | null>(null);
+  const navigate = useNavigate();
+  const user = useAuth();
   const [cartCount, setCartCount] = useState(0);
 
   useEffect(() => {
-    setUser(getAuth());
     setCartCount(getCartCount());
     return subscribeToCart(() => setCartCount(getCartCount()));
   }, []);
@@ -23,7 +24,7 @@ export function Header() {
     { to: "/register", label: "تسجيل" },
   ] as const;
 
-  const dashboardLink = user
+  const dashboardLink = user && user.role !== "restaurant"
     ? {
         to:
           user.role === "admin"
@@ -33,9 +34,19 @@ export function Header() {
       }
     : null;
 
+  const roleLinks =
+    user?.role === "restaurant"
+      ? [{ to: "/dashboard/restaurant", label: "لوحة المطعم" }]
+      : getDashboardNavLinks(user?.role ?? "customer");
   const authenticatedLinks = user
-    ? [{ to: "/", label: "الرئيسية" }, ...getDashboardNavLinks(user.role)]
+    ? [{ to: "/", label: "الرئيسية" }, ...roleLinks]
     : publicLinks;
+
+  const handleLogout = () => {
+    clearAuth();
+    toast.success("تم تسجيل الخروج");
+    navigate({ to: "/login" });
+  };
 
   return (
     <header className="sticky top-0 z-50 border-b border-border/40 bg-background/70 backdrop-blur-xl">
@@ -59,6 +70,7 @@ export function Header() {
               to={link.to}
               className="rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
               activeProps={{ className: "rounded-lg bg-secondary px-3 py-2 text-sm font-medium text-foreground" }}
+              activeOptions={{ exact: link.to === "/" }}
             >
               {link.label}
             </Link>
@@ -91,10 +103,28 @@ export function Header() {
             </Link>
           ) : null}
           <ThemeToggle />
-          <div className="hidden items-center gap-1.5 md:flex">
-            <span className="flex h-2 w-2 animate-pulse rounded-full bg-cyan" />
-            <span className="font-mono text-xs text-muted-foreground">{user ? "وضع مستخدم" : "عرض حي"}</span>
-          </div>
+          {user ? (
+            <div className="hidden items-center gap-2 rounded-full border border-border bg-secondary/50 px-3 py-1.5 sm:flex">
+              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-primary to-cyan text-xs font-bold text-primary-foreground">
+                {user.name.charAt(0)}
+              </div>
+              <span className="max-w-32 truncate text-sm font-medium">{user.name}</span>
+            </div>
+          ) : (
+            <div className="hidden items-center gap-1.5 md:flex">
+              <span className="flex h-2 w-2 animate-pulse rounded-full bg-cyan" />
+              <span className="font-mono text-xs text-muted-foreground">عرض حي</span>
+            </div>
+          )}
+          {user ? (
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-1.5 rounded-lg border border-border bg-secondary/40 px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive"
+            >
+              <LogOut className="h-4 w-4" />
+              <span className="hidden sm:inline">خروج</span>
+            </button>
+          ) : null}
         </div>
       </div>
     </header>

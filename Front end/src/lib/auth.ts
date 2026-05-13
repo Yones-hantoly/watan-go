@@ -1,4 +1,6 @@
 // نظام أدوار للمنصة — يخزن محلياً (localStorage)
+import { useSyncExternalStore } from "react";
+
 export type Role = "customer" | "driver" | "restaurant" | "shop" | "admin";
 export type PublicRegisterRole = Exclude<Role, "admin">;
 
@@ -28,6 +30,8 @@ const ACCOUNTS_KEY = "watan_go_accounts";
 const AUDIT_LOG_KEY = "watan_go_audit_log";
 const PENDING_LOGIN_ROLE_KEY = "watan_go_pending_login_role";
 const PASSWORD_ITERATIONS = 210000;
+const authListeners = new Set<() => void>();
+let authSnapshot: AuthUser | null | undefined;
 const INITIAL_ADMIN_ACCOUNT = {
   name: "System Administrator",
   phone: "0599990000",
@@ -86,12 +90,7 @@ export function clearPendingLoginRole() {
   sessionStorage.removeItem(PENDING_LOGIN_ROLE_KEY);
 }
 
-export function setAuth(user: AuthUser) {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(AUTH_KEY, JSON.stringify(user));
-}
-
-export function getAuth(): AuthUser | null {
+function readAuthFromStorage(): AuthUser | null {
   if (typeof window === "undefined") return null;
   try {
     const raw = localStorage.getItem(AUTH_KEY);
@@ -101,9 +100,53 @@ export function getAuth(): AuthUser | null {
   }
 }
 
+function getAuthSnapshot() {
+  if (authSnapshot === undefined) {
+    authSnapshot = readAuthFromStorage();
+  }
+  return authSnapshot;
+}
+
+function publishAuth(nextUser: AuthUser | null) {
+  authSnapshot = nextUser;
+  authListeners.forEach((listener) => listener());
+}
+
+export function subscribeToAuth(listener: () => void) {
+  if (typeof window === "undefined") return () => {};
+
+  authListeners.add(listener);
+  const handleStorage = (event: StorageEvent) => {
+    if (event.key && event.key !== AUTH_KEY) return;
+    publishAuth(readAuthFromStorage());
+  };
+
+  window.addEventListener("storage", handleStorage);
+
+  return () => {
+    authListeners.delete(listener);
+    window.removeEventListener("storage", handleStorage);
+  };
+}
+
+export function useAuth() {
+  return useSyncExternalStore(subscribeToAuth, getAuthSnapshot, () => null);
+}
+
+export function setAuth(user: AuthUser) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(AUTH_KEY, JSON.stringify(user));
+  publishAuth(user);
+}
+
+export function getAuth(): AuthUser | null {
+  return readAuthFromStorage();
+}
+
 export function clearAuth() {
   if (typeof window === "undefined") return;
   localStorage.removeItem(AUTH_KEY);
+  publishAuth(null);
 }
 
 export function normalizePhone(phone: string) {
@@ -280,10 +323,7 @@ export function getDashboardNavLinks(role: Role): RoleNavLink[] {
         { to: "/dashboard/driver", label: "التوصيل" },
       ];
     case "restaurant":
-      return [
-        { to: "/dashboard/restaurant", label: "إدارة الطلبات" },
-        { to: "/dashboard/restaurant", label: "القائمة" },
-      ];
+      return [];
     case "shop":
       return [
         { to: "/dashboard/shop", label: "المنتجات" },
