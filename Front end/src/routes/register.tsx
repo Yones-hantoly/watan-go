@@ -1,8 +1,16 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import { Eye, EyeOff, Lock, Phone, User, Loader2, ShieldCheck, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
-import { PUBLIC_REGISTER_ROLES, isPublicRegisterRole, normalizePhone, registerAccount, type PublicRegisterRole } from "@/lib/auth";
+import {
+  PUBLIC_REGISTER_ROLES,
+  isPublicRegisterRole,
+  normalizePhone,
+  registerAccount,
+  routeForRole,
+  setAuth,
+  type PublicRegisterRole,
+} from "@/lib/auth";
 
 export const Route = createFileRoute("/register")({
   head: () => ({
@@ -18,6 +26,7 @@ export const Route = createFileRoute("/register")({
 
 function RegisterPage() {
   const navigate = useNavigate();
+  const router = useRouter();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
@@ -87,8 +96,10 @@ function RegisterPage() {
       return;
     }
 
-    toast.success("تم إنشاء الحساب بنجاح، سجّل دخولك الآن");
-    navigate({ to: "/login" });
+    setAuth({ name: name.trim(), phone, role });
+    toast.success("تم إنشاء الحساب وتسجيل الدخول بنجاح");
+    await router.invalidate();
+    navigate({ to: routeForRole(role), replace: true });
   };
 
   const isInvalid = !name || !phone || !password || !confirm;

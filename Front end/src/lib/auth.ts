@@ -29,6 +29,7 @@ const AUTH_KEY = "watan_go_auth";
 const ACCOUNTS_KEY = "watan_go_accounts";
 const AUDIT_LOG_KEY = "watan_go_audit_log";
 const PENDING_LOGIN_ROLE_KEY = "watan_go_pending_login_role";
+const AUTH_CHANGED_EVENT = "watan_go_auth_changed";
 const PASSWORD_ITERATIONS = 210000;
 const authListeners = new Set<() => void>();
 let authSnapshot: AuthUser | null | undefined;
@@ -107,24 +108,33 @@ function getAuthSnapshot() {
   return authSnapshot;
 }
 
-function publishAuth(nextUser: AuthUser | null) {
+function publishAuth(nextUser: AuthUser | null, notifyWindow = false) {
   authSnapshot = nextUser;
   authListeners.forEach((listener) => listener());
+
+  if (notifyWindow && typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent(AUTH_CHANGED_EVENT));
+  }
 }
 
 export function subscribeToAuth(listener: () => void) {
   if (typeof window === "undefined") return () => {};
 
   authListeners.add(listener);
+  const handleAuthChanged = () => {
+    publishAuth(readAuthFromStorage());
+  };
   const handleStorage = (event: StorageEvent) => {
     if (event.key && event.key !== AUTH_KEY) return;
     publishAuth(readAuthFromStorage());
   };
 
+  window.addEventListener(AUTH_CHANGED_EVENT, handleAuthChanged);
   window.addEventListener("storage", handleStorage);
 
   return () => {
     authListeners.delete(listener);
+    window.removeEventListener(AUTH_CHANGED_EVENT, handleAuthChanged);
     window.removeEventListener("storage", handleStorage);
   };
 }
@@ -136,17 +146,17 @@ export function useAuth() {
 export function setAuth(user: AuthUser) {
   if (typeof window === "undefined") return;
   localStorage.setItem(AUTH_KEY, JSON.stringify(user));
-  publishAuth(user);
+  publishAuth(user, true);
 }
 
 export function getAuth(): AuthUser | null {
-  return readAuthFromStorage();
+  return getAuthSnapshot();
 }
 
 export function clearAuth() {
   if (typeof window === "undefined") return;
   localStorage.removeItem(AUTH_KEY);
-  publishAuth(null);
+  publishAuth(null, true);
 }
 
 export function normalizePhone(phone: string) {

@@ -1,13 +1,14 @@
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Car, LogOut, ShoppingCart, Store, UtensilsCrossed } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { clearAuth, getDashboardNavLinks, useAuth } from "@/lib/auth";
+import { clearAuth, routeForRole, useAuth, type Role } from "@/lib/auth";
 import { getCartCount, subscribeToCart } from "@/lib/commerce";
 import { toast } from "sonner";
 
 export function Header() {
   const navigate = useNavigate();
+  const router = useRouter();
   const user = useAuth();
   const [cartCount, setCartCount] = useState(0);
 
@@ -18,34 +19,30 @@ export function Header() {
 
   const publicLinks = [
     { to: "/", label: "الرئيسية" },
-    { to: "/architecture", label: "النظام" },
-    { to: "/contact", label: "تواصل" },
-    { to: "/login", label: "دخول" },
     { to: "/register", label: "تسجيل" },
+    { to: "/login", label: "دخول" },
   ] as const;
 
-  const dashboardLink = user && user.role !== "restaurant"
-    ? {
-        to:
-          user.role === "admin"
-            ? "/dashboard/admin"
-            : `/dashboard/${user.role === "customer" ? "customer" : user.role}`,
-        label: "التسجيل",
-      }
-    : null;
+  const dashboardLabels: Record<Role, string> = {
+    restaurant: "لوحة المطعم",
+    customer: "لوحة العميل",
+    driver: "لوحة السائق",
+    shop: "لوحة المتجر",
+    admin: "لوحة الإدارة",
+  };
 
-  const roleLinks =
-    user?.role === "restaurant"
-      ? [{ to: "/dashboard/restaurant", label: "لوحة المطعم" }]
-      : getDashboardNavLinks(user?.role ?? "customer");
   const authenticatedLinks = user
-    ? [{ to: "/", label: "الرئيسية" }, ...roleLinks]
+    ? [
+        { to: "/", label: "الرئيسية" },
+        { to: routeForRole(user.role), label: dashboardLabels[user.role] },
+      ]
     : publicLinks;
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     clearAuth();
     toast.success("تم تسجيل الخروج");
-    navigate({ to: "/login" });
+    await router.invalidate();
+    navigate({ to: "/login", replace: true });
   };
 
   return (
@@ -91,15 +88,6 @@ export function Header() {
                   {cartCount}
                 </span>
               ) : null}
-            </Link>
-          ) : null}
-          {dashboardLink ? (
-            <Link
-              to={dashboardLink.to}
-              className="rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-              activeProps={{ className: "rounded-lg bg-secondary px-3 py-2 text-sm font-medium text-foreground" }}
-            >
-              {dashboardLink.label}
             </Link>
           ) : null}
           <ThemeToggle />

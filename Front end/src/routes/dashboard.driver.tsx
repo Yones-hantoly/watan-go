@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { toast } from "sonner";
 import { DriverDashboard } from "@/components/driver/driver-dashboard";
@@ -10,6 +10,7 @@ export const Route = createFileRoute("/dashboard/driver")({
 
 function DriverDashboardRoute() {
   const navigate = useNavigate();
+  const router = useRouter();
   const user = useAuth();
 
   useEffect(() => {
@@ -29,10 +30,11 @@ function DriverDashboardRoute() {
 
   }, [navigate, user]);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     clearAuth();
     toast.success("تم تسجيل الخروج");
-    navigate({ to: "/login" });
+    await router.invalidate();
+    navigate({ to: "/login", replace: true });
   };
 
   if (!user || user.role !== "driver") {

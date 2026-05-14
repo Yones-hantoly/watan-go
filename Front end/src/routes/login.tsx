@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Eye, EyeOff, Lock, Phone, Loader2, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
@@ -26,6 +26,7 @@ export const Route = createFileRoute("/login")({
 
 function LoginPage() {
   const navigate = useNavigate();
+  const router = useRouter();
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [showPwd, setShowPwd] = useState(false);
@@ -85,7 +86,8 @@ function LoginPage() {
     const { account } = result;
     setAuth({ name: account.name, phone: account.phone, role: account.role });
     toast.success(`أهلاً ${account.name}، تم تسجيل الدخول بنجاح`);
-    navigate({ to: routeForRole(account.role) });
+    await router.invalidate();
+    navigate({ to: routeForRole(account.role), replace: true });
   };
 
   const isInvalid = !phone || !password;

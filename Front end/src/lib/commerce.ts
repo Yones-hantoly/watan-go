@@ -2,7 +2,15 @@ import type { AuthUser } from "@/lib/auth";
 import type { DeliveryStage } from "@/lib/delivery-flow";
 
 export type CartItemType = "food" | "grocery";
-export type OrderStatus = "pending" | "accepted" | "preparing" | "on_the_way" | "delivered" | "cancelled";
+export type OrderStatus =
+  | "pending"
+  | "accepted"
+  | "preparing"
+  | "ready_for_pickup"
+  | "on_the_way"
+  | "delivered"
+  | "rejected"
+  | "cancelled";
 
 export interface CartItem {
   id: string;
