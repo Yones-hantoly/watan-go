@@ -3,15 +3,34 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Banknote, Clock3, ListChecks, PackageCheck, Star, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 import { type AuthUser } from "@/lib/auth";
-import { getOrders, subscribeToOrders, updateDriverStatus, updateOrderStatus, type Order as CommerceOrder } from "@/lib/commerce";
-import { advanceOrderDeliveryStage, getOrderDeliveryStage, isFinalDeliveryStage, setOrderDeliveryStage } from "@/lib/delivery-flow";
+import {
+  getOrders,
+  subscribeToOrders,
+  updateDriverStatus,
+  type Order as CommerceOrder,
+} from "@/lib/commerce";
+import {
+  advanceOrderDeliveryStage,
+  getOrderDeliveryStage,
+  isFinalDeliveryStage,
+  setOrderDeliveryStage,
+} from "@/lib/delivery-flow";
 import { getDailyDriverEarnings, type DailyDriverEarnings } from "@/lib/driver-earnings";
 import { getDriverNotifications, type DriverNotification } from "@/lib/driver-notifications";
-import { getDriverStatus, subscribeToDriverStatus, updateDriverAvailabilityStatus } from "@/lib/driver-status";
+import {
+  getDriverStatus,
+  subscribeToDriverStatus,
+  updateDriverAvailabilityStatus,
+} from "@/lib/driver-status";
 import { deriveDriverStats, type DriverStats, type DriverWorkSession } from "@/lib/driver-stats";
 import {
-  acceptRideOrder, getRideOrders, subscribeToRideOrders, updateRideStatus,
-  type RideOrder, RIDE_STATUS_LABELS, RIDE_STATUS_COLORS,
+  acceptRideOrder,
+  getRideOrders,
+  subscribeToRideOrders,
+  updateRideStatus,
+  type RideOrder,
+  RIDE_STATUS_LABELS,
+  RIDE_STATUS_COLORS,
 } from "@/lib/ride-orders";
 import {
   mockActivity,
@@ -42,11 +61,40 @@ interface DriverDashboardProps {
 
 type DrawerKind = "trips" | "earnings" | "rating" | "hours" | "order" | null;
 
-const isCompletedCommerceOrder = (order: CommerceOrder) => order.status === "completed" || order.status === "delivered";
-const isReadyForDriverPickup = (order: CommerceOrder) => order.status === "ready_for_pickup" && order.driverStatus === "pending";
+const isCompletedCommerceOrder = (order: CommerceOrder) =>
+  order.status === "completed" || order.status === "delivered";
+const isReadyForDriverPickup = (order: CommerceOrder) =>
+  order.status === "ready_for_pickup" && order.driverStatus === "pending";
+const isActiveDriverCommerceOrder = (order: CommerceOrder, driverPhone: string) =>
+  order.driverPhone === driverPhone &&
+  order.driverStatus !== "pending" &&
+  order.driverStatus !== "completed" &&
+  order.driverStatus !== "delivered" &&
+  order.status !== "completed" &&
+  order.status !== "delivered" &&
+  order.status !== "cancelled";
+
+function commerceOrderToTracking(order: CommerceOrder): TrackingOrder {
+  return {
+    id: order.id,
+    kind: order.type === "food" ? "food" : "shop",
+    customerName: order.user.name,
+    pickup: order.vendorName,
+    pickupCoords: null,
+    destination: order.deliveryAddress,
+    destinationCoords: null,
+    price: order.total,
+  };
+}
+
+function getInitialDriverView(driverPhone: string): DriverView {
+  return getOrders().some((order) => isActiveDriverCommerceOrder(order, driverPhone))
+    ? "delivery"
+    : "dashboard";
+}
 
 export function DriverDashboard({ user, onLogout }: DriverDashboardProps) {
-  const [activeView, setActiveView] = useState<DriverView>("dashboard");
+  const [activeView, setActiveView] = useState<DriverView>(() => getInitialDriverView(user.phone));
   const [driverStatus, setDriverStatus] = useState<DriverStatus>(() => getDriverStatus(user.phone));
   const [orders, setOrders] = useState(mockOrders);
   const [deliveryOrders, setDeliveryOrders] = useState<CommerceOrder[]>(() =>
@@ -60,7 +108,9 @@ export function DriverDashboard({ user, onLogout }: DriverDashboardProps) {
   const [workSession] = useState<DriverWorkSession>(() => createTodayWorkSession());
   const [statsClock, setStatsClock] = useState(() => new Date());
   const [activeTracking, setActiveTracking] = useState<TrackingOrder | null>(null);
-  const [lastDriverCoords, setLastDriverCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [lastDriverCoords, setLastDriverCoords] = useState<{ lat: number; lng: number } | null>(
+    null,
+  );
   const [drawer, setDrawer] = useState<DrawerKind>(null);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isDark, setIsDark] = useState(() => {
@@ -74,7 +124,11 @@ export function DriverDashboard({ user, onLogout }: DriverDashboardProps) {
       setAllRideOrders(nextRideOrders);
       setRideOrders(
         nextRideOrders.filter(
-          (o) => o.status === "pending" || o.status === "accepted" || o.status === "driver_assigned" || o.status === "on_the_way",
+          (o) =>
+            o.status === "pending" ||
+            o.status === "accepted" ||
+            o.status === "driver_assigned" ||
+            o.status === "on_the_way",
         ),
       );
       setIsDriverDataLoading(false);
@@ -88,10 +142,22 @@ export function DriverDashboard({ user, onLogout }: DriverDashboardProps) {
       const nextOrders = getOrders();
       setAllDeliveryOrders(nextOrders);
       setDeliveryOrders(nextOrders.filter(isReadyForDriverPickup));
+
+      const restoredActiveOrder = nextOrders.find((order) =>
+        isActiveDriverCommerceOrder(order, user.phone),
+      );
+      setActiveTracking((current) => {
+        if (current && getRideOrders().some((ride) => ride.id === current.id)) return current;
+        if (!restoredActiveOrder)
+          return current && nextOrders.some((order) => order.id === current.id) ? null : current;
+        if (current?.id === restoredActiveOrder.id) return current;
+        return commerceOrderToTracking(restoredActiveOrder);
+      });
+      if (restoredActiveOrder) setActiveView("delivery");
     };
     load();
     return subscribeToOrders(load);
-  }, []);
+  }, [user.phone]);
 
   useEffect(() => {
     const load = () => setDriverStatus(getDriverStatus(user.phone));
@@ -103,10 +169,13 @@ export function DriverDashboard({ user, onLogout }: DriverDashboardProps) {
     let isCurrent = true;
 
     async function loadNotifications() {
-      const data = await getDriverNotifications({ phone: user.phone }, {
-        rides: allRideOrders,
-        orders: allDeliveryOrders,
-      });
+      const data = await getDriverNotifications(
+        { phone: user.phone },
+        {
+          rides: allRideOrders,
+          orders: allDeliveryOrders,
+        },
+      );
       if (isCurrent) setNotifications(data);
     }
 
@@ -144,25 +213,31 @@ export function DriverDashboard({ user, onLogout }: DriverDashboardProps) {
       }),
     [allDeliveryOrders, allRideOrders, statsClock, user.phone],
   );
-  const activeOrder    = useMemo(() => orders.find((o) => o.status === "active"), [orders]);
+  const activeOrder = useMemo(() => orders.find((o) => o.status === "active"), [orders]);
   const activeCommerceOrder = useMemo(
     () => allDeliveryOrders.find((order) => order.id === activeTracking?.id) ?? null,
     [activeTracking?.id, allDeliveryOrders],
   );
-  const activeDeliveryStage = activeCommerceOrder ? getOrderDeliveryStage(activeCommerceOrder) : null;
+  const activeDeliveryStage = activeCommerceOrder
+    ? getOrderDeliveryStage(activeCommerceOrder)
+    : null;
 
-  const openOrder = (order: Order) => { setSelectedOrder(order); setDrawer("order"); };
+  const openOrder = (order: Order) => {
+    setSelectedOrder(order);
+    setDrawer("order");
+  };
 
   const updateOrder = (orderId: string, status: Order["status"], message: string) => {
     setOrders((cur) => cur.map((o) => (o.id === orderId ? { ...o, status } : o)));
     toast.success(message);
   };
 
-  const updateDeliveryOrder = (orderId: string, ds: CommerceOrder["driverStatus"], message: string) => {
+  const updateDeliveryOrder = (
+    orderId: string,
+    ds: CommerceOrder["driverStatus"],
+    message: string,
+  ) => {
     updateDriverStatus(orderId, ds, user);
-    if (ds === "picked_up") updateOrderStatus(orderId, "picked_up");
-    if (ds === "on_the_way") updateOrderStatus(orderId, "on_the_way");
-    if (ds === "completed" || ds === "delivered") updateOrderStatus(orderId, "completed");
     toast.success(message);
   };
 
@@ -221,7 +296,6 @@ export function DriverDashboard({ user, onLogout }: DriverDashboardProps) {
     }
 
     updateDeliveryOrder(orderId, "picked_up", "تم استلام الطلب بواسطة السائق");
-    setOrderDeliveryStage(orderId, "picked_up");
     const o = getOrders().find((x) => x.id === orderId);
     if (o) {
       setActiveTracking({
@@ -256,7 +330,10 @@ export function DriverDashboard({ user, onLogout }: DriverDashboardProps) {
     }
   };
 
-  const handleRejectRide   = (id: string) => { updateRideStatus(id, "cancelled"); toast.success("تم رفض الرحلة"); };
+  const handleRejectRide = (id: string) => {
+    updateRideStatus(id, "cancelled");
+    toast.success("تم رفض الرحلة");
+  };
   const handleCompleteRide = (id: string) => {
     updateRideStatus(id, "completed");
     toast.success("تمت الرحلة بنجاح");
@@ -269,7 +346,7 @@ export function DriverDashboard({ user, onLogout }: DriverDashboardProps) {
       if (isRide) updateRideStatus(activeTracking.id, "completed");
       else setOrderDeliveryStage(activeTracking.id, "completed");
     }
-    if (driverStatus !== "online") setActiveTracking(null);
+    setActiveTracking(null);
     toast.success("تم إنهاء التوصيل بنجاح");
   };
 
@@ -280,7 +357,7 @@ export function DriverDashboard({ user, onLogout }: DriverDashboardProps) {
 
     const nextStage = getOrderDeliveryStage(updatedOrder);
     if (isFinalDeliveryStage(nextStage)) {
-      if (driverStatus !== "online") setActiveTracking(null);
+      setActiveTracking(null);
       toast.success("تم إنهاء التوصيل بنجاح");
       return;
     }
@@ -291,7 +368,10 @@ export function DriverDashboard({ user, onLogout }: DriverDashboardProps) {
   const toggleTheme = () => {
     if (typeof document === "undefined") return;
     document.documentElement.classList.toggle("light");
-    document.documentElement.classList.toggle("dark", !document.documentElement.classList.contains("light"));
+    document.documentElement.classList.toggle(
+      "dark",
+      !document.documentElement.classList.contains("light"),
+    );
     setIsDark(!document.documentElement.classList.contains("light"));
   };
 
@@ -300,10 +380,18 @@ export function DriverDashboard({ user, onLogout }: DriverDashboardProps) {
       <div className="flex min-h-screen flex-col lg:flex-row">
         <SidebarNavigation
           activeView={activeView}
-          onChange={(view) => { setActiveView(view); }}
+          onChange={(view) => {
+            setActiveView(view);
+          }}
         />
         <div className="min-w-0 flex-1">
-          <DriverHeader user={user} status={driverStatus} isDark={isDark} onLogout={onLogout} onToggleTheme={toggleTheme} />
+          <DriverHeader
+            user={user}
+            status={driverStatus}
+            isDark={isDark}
+            onLogout={onLogout}
+            onToggleTheme={toggleTheme}
+          />
           <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
             <AnimatePresence mode="wait">
               <motion.div
@@ -357,7 +445,12 @@ export function DriverDashboard({ user, onLogout }: DriverDashboardProps) {
                   />
                 )}
                 {activeView === "earnings" && <EarningsDetails earnings={dailyEarnings} />}
-                {activeView === "ratings"  && <RatingDetails ratings={mockRatings} averageRating={driverStats.averageRecentRating} />}
+                {activeView === "ratings" && (
+                  <RatingDetails
+                    ratings={mockRatings}
+                    averageRating={driverStats.averageRecentRating}
+                  />
+                )}
                 {activeView === "settings" && <SettingsPanel />}
               </motion.div>
             </AnimatePresence>
@@ -365,12 +458,25 @@ export function DriverDashboard({ user, onLogout }: DriverDashboardProps) {
         </div>
       </div>
 
-      <DetailsDrawer isOpen={drawer !== null} onClose={() => setDrawer(null)} title={drawerTitle(drawer)}>
-        {drawer === "trips"    && <TripsDetails trips={mockTrips} />}
+      <DetailsDrawer
+        isOpen={drawer !== null}
+        onClose={() => setDrawer(null)}
+        title={drawerTitle(drawer)}
+      >
+        {drawer === "trips" && <TripsDetails trips={mockTrips} />}
         {drawer === "earnings" && <EarningsDetails earnings={dailyEarnings} />}
-        {drawer === "rating"   && <RatingDetails ratings={mockRatings} averageRating={driverStats.averageRecentRating} />}
-        {drawer === "hours"    && <WorkingHoursDetails startTime={new Date(workSession.startedAt)} breakTime={driverStats.breakMinutes} status={driverStatus} activity={mockActivity} />}
-        {drawer === "order"    && selectedOrder && <OrderDetails order={selectedOrder} />}
+        {drawer === "rating" && (
+          <RatingDetails ratings={mockRatings} averageRating={driverStats.averageRecentRating} />
+        )}
+        {drawer === "hours" && (
+          <WorkingHoursDetails
+            startTime={new Date(workSession.startedAt)}
+            breakTime={driverStats.breakMinutes}
+            status={driverStatus}
+            activity={mockActivity}
+          />
+        )}
+        {drawer === "order" && selectedOrder && <OrderDetails order={selectedOrder} />}
       </DetailsDrawer>
     </div>
   );
@@ -398,11 +504,22 @@ function createTodayWorkSession(): DriverWorkSession {
 // ── DashboardHome ─────────────────────────────────────────────────────────────
 
 function DashboardHome({
-  stats, dailyEarnings, isLoading, driverStatus, onStatusChange,
-  onOpenDrawer, onGoOrders, onGoEarnings,
+  stats,
+  dailyEarnings,
+  isLoading,
+  driverStatus,
+  onStatusChange,
+  onOpenDrawer,
+  onGoOrders,
+  onGoEarnings,
   notifications,
-  deliveryOrders, completedDeliveryOrders, onAcceptDelivery,
-  rideOrders, onAcceptRide, onRejectRide, onCompleteRide,
+  deliveryOrders,
+  completedDeliveryOrders,
+  onAcceptDelivery,
+  rideOrders,
+  onAcceptRide,
+  onRejectRide,
+  onCompleteRide,
 }: {
   stats: DriverStats;
   dailyEarnings: DailyDriverEarnings;
@@ -422,11 +539,21 @@ function DashboardHome({
   onCompleteRide: (id: string) => void;
 }) {
   const hasIncomingOrders = rideOrders.length > 0 || deliveryOrders.length > 0;
-  const tripsHint = stats.hasActiveRide ? "مع رحلة نشطة الآن" : hasIncomingOrders ? "لا توجد رحلة نشطة الآن" : "لا توجد طلبات متاحة الآن";
-  const earningsHint = dailyEarnings.completedCount > 0 ? "من الطلبات والرحلات المكتملة" : "لا توجد أرباح اليوم";
-  const ratingValue = stats.recentRatingsCount > 0 ? stats.averageRecentRating.toFixed(1) : "لا يوجد";
-  const ratingHint = stats.recentRatingsCount > 0 ? `${stats.recentRatingsCount} تقييم حديث` : "لا توجد تقييمات حديثة";
-  const hoursHint = stats.breakMinutes > 0 ? `تشمل ${stats.breakMinutes} دقيقة استراحة` : "لا توجد استراحات مسجلة";
+  const tripsHint = stats.hasActiveRide
+    ? "مع رحلة نشطة الآن"
+    : hasIncomingOrders
+      ? "لا توجد رحلة نشطة الآن"
+      : "لا توجد طلبات متاحة الآن";
+  const earningsHint =
+    dailyEarnings.completedCount > 0 ? "من الطلبات والرحلات المكتملة" : "لا توجد أرباح اليوم";
+  const ratingValue =
+    stats.recentRatingsCount > 0 ? stats.averageRecentRating.toFixed(1) : "لا يوجد";
+  const ratingHint =
+    stats.recentRatingsCount > 0
+      ? `${stats.recentRatingsCount} تقييم حديث`
+      : "لا توجد تقييمات حديثة";
+  const hoursHint =
+    stats.breakMinutes > 0 ? `تشمل ${stats.breakMinutes} دقيقة استراحة` : "لا توجد استراحات مسجلة";
 
   return (
     <div className="space-y-6">
@@ -434,25 +561,43 @@ function DashboardHome({
         <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr] lg:items-center">
           <div>
             <p className="text-sm font-bold text-cyan">لوحة السائق المباشرة</p>
-            <h2 className="mt-2 font-display text-3xl font-bold sm:text-4xl">جاهز لاستلام طلبات اليوم؟</h2>
-            <p className="mt-3 max-w-2xl text-sm leading-7 text-muted-foreground">تابع الرحلات والأرباح والتقييمات داخل تجربة عربية RTL مصممة لسائق يعمل بسرعة ووضوح.</p>
+            <h2 className="mt-2 font-display text-3xl font-bold sm:text-4xl">
+              جاهز لاستلام طلبات اليوم؟
+            </h2>
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-muted-foreground">
+              تابع الرحلات والأرباح والتقييمات داخل تجربة عربية RTL مصممة لسائق يعمل بسرعة ووضوح.
+            </p>
             <div className="mt-5 flex flex-wrap gap-2">
-              <button onClick={onGoOrders} className="rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground transition hover:bg-primary/90">عرض الطلبات</button>
-              <button onClick={() => onOpenDrawer("hours")} className="rounded-xl border border-cyan/30 bg-cyan/10 px-4 py-2.5 text-sm font-bold text-cyan transition hover:border-cyan/60">حالة المناوبة</button>
+              <button
+                onClick={onGoOrders}
+                className="rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground transition hover:bg-primary/90"
+              >
+                عرض الطلبات
+              </button>
+              <button
+                onClick={() => onOpenDrawer("hours")}
+                className="rounded-xl border border-cyan/30 bg-cyan/10 px-4 py-2.5 text-sm font-bold text-cyan transition hover:border-cyan/60"
+              >
+                حالة المناوبة
+              </button>
             </div>
           </div>
           <div className="rounded-2xl border border-white/10 bg-background/45 p-4 backdrop-blur">
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">حالة العمل</span>
               <span className="rounded-full bg-cyan/15 px-3 py-1 text-xs font-bold text-cyan">
-                {driverStatus === "online" ? "متصل" : driverStatus === "busy" ? "مشغول" : "غير متصل"}
+                {driverStatus === "online"
+                  ? "متصل"
+                  : driverStatus === "busy"
+                    ? "مشغول"
+                    : "غير متصل"}
               </span>
             </div>
             <DriverStatusSelector status={driverStatus} onChange={onStatusChange} />
             <div className="mt-5 grid grid-cols-2 gap-3">
               <MiniDashboardMetric label="طلبات رحلات" value={String(rideOrders.length)} />
-              <MiniDashboardMetric label="توصيل نشط"   value={String(deliveryOrders.length)} />
-              <MiniDashboardMetric label="تنبيهات"      value={notifications.length.toString()} />
+              <MiniDashboardMetric label="توصيل نشط" value={String(deliveryOrders.length)} />
+              <MiniDashboardMetric label="تنبيهات" value={notifications.length.toString()} />
               <MiniDashboardMetric label="قبول الطلبات" value="92%" />
             </div>
           </div>
@@ -460,50 +605,111 @@ function DashboardHome({
       </section>
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatsCard title="رحلات اليوم" value={`${stats.todayTripsCount}`} hint={tripsHint} icon={ListChecks} tone="cyan" onClick={() => onOpenDrawer("trips")} isLoading={isLoading} />
-        <StatsCard title="أرباح اليوم" value={`${dailyEarnings.totalEarnings.toFixed(0)} شيكل`} hint={earningsHint} icon={Banknote} tone="amber" onClick={onGoEarnings} isLoading={isLoading} />
-        <StatsCard title="التقييم" value={ratingValue} hint={ratingHint} icon={Star} tone="cyan" onClick={() => onOpenDrawer("rating")} isLoading={isLoading} />
-        <StatsCard title="ساعات العمل" value={stats.activeWorkingHours.toFixed(1)} hint={hoursHint} icon={Clock3} tone="primary" onClick={() => onOpenDrawer("hours")} isLoading={isLoading} />
+        <StatsCard
+          title="رحلات اليوم"
+          value={`${stats.todayTripsCount}`}
+          hint={tripsHint}
+          icon={ListChecks}
+          tone="cyan"
+          onClick={() => onOpenDrawer("trips")}
+          isLoading={isLoading}
+        />
+        <StatsCard
+          title="أرباح اليوم"
+          value={`${dailyEarnings.totalEarnings.toFixed(0)} شيكل`}
+          hint={earningsHint}
+          icon={Banknote}
+          tone="amber"
+          onClick={onGoEarnings}
+          isLoading={isLoading}
+        />
+        <StatsCard
+          title="التقييم"
+          value={ratingValue}
+          hint={ratingHint}
+          icon={Star}
+          tone="cyan"
+          onClick={() => onOpenDrawer("rating")}
+          isLoading={isLoading}
+        />
+        <StatsCard
+          title="ساعات العمل"
+          value={stats.activeWorkingHours.toFixed(1)}
+          hint={hoursHint}
+          icon={Clock3}
+          tone="primary"
+          onClick={() => onOpenDrawer("hours")}
+          isLoading={isLoading}
+        />
       </section>
 
       {/* ── Ride requests ── */}
       <section className="rounded-2xl border border-white/10 bg-surface/85 p-5">
         <div className="mb-4 flex items-center justify-between gap-3">
           <h3 className="font-display text-lg font-bold">طلبات رحلات جديدة</h3>
-          <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary">{rideOrders.length}</span>
+          <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary">
+            {rideOrders.length}
+          </span>
         </div>
         <div className="space-y-3">
           {rideOrders.length === 0 ? (
             <div className="text-sm text-muted-foreground">لا توجد طلبات رحلات حالياً.</div>
-          ) : rideOrders.map((r) => (
-            <div key={r.id} className="rounded-2xl border border-border bg-secondary/20 p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0 space-y-1">
-                  <div className="text-xs text-muted-foreground">{r.user.name} · {r.id}</div>
-                  <div className="text-sm font-semibold">{r.pickup} ← {r.destination}</div>
-                  <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                    {r.distanceKm != null && <span>{r.distanceKm.toFixed(1)} كم</span>}
-                    {r.durationLabel && <span>{r.durationLabel}</span>}
-                    {r.price != null && <span className="font-bold text-primary">{r.price} شيكل</span>}
+          ) : (
+            rideOrders.map((r) => (
+              <div key={r.id} className="rounded-2xl border border-border bg-secondary/20 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 space-y-1">
+                    <div className="text-xs text-muted-foreground">
+                      {r.user.name} · {r.id}
+                    </div>
+                    <div className="text-sm font-semibold">
+                      {r.pickup} ← {r.destination}
+                    </div>
+                    <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                      {r.distanceKm != null && <span>{r.distanceKm.toFixed(1)} كم</span>}
+                      {r.durationLabel && <span>{r.durationLabel}</span>}
+                      {r.price != null && (
+                        <span className="font-bold text-primary">{r.price} شيكل</span>
+                      )}
+                    </div>
                   </div>
+                  <span
+                    className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold ${RIDE_STATUS_COLORS[r.status]}`}
+                  >
+                    {RIDE_STATUS_LABELS[r.status]}
+                  </span>
                 </div>
-                <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold ${RIDE_STATUS_COLORS[r.status]}`}>
-                  {RIDE_STATUS_LABELS[r.status]}
-                </span>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {r.status === "pending" && (
+                    <>
+                      <button
+                        onClick={() => onAcceptRide(r.id)}
+                        className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground"
+                      >
+                        قبول والتوجه
+                      </button>
+                      <button
+                        onClick={() => onRejectRide(r.id)}
+                        className="rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-2 text-xs font-bold text-destructive"
+                      >
+                        رفض
+                      </button>
+                    </>
+                  )}
+                  {(r.status === "accepted" ||
+                    r.status === "driver_assigned" ||
+                    r.status === "on_the_way") && (
+                    <button
+                      onClick={() => onCompleteRide(r.id)}
+                      className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 text-xs font-bold text-emerald-500"
+                    >
+                      إتمام الرحلة
+                    </button>
+                  )}
+                </div>
               </div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {r.status === "pending" && (
-                  <>
-                    <button onClick={() => onAcceptRide(r.id)} className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground">قبول والتوجه</button>
-                    <button onClick={() => onRejectRide(r.id)} className="rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-2 text-xs font-bold text-destructive">رفض</button>
-                  </>
-                )}
-                {(r.status === "accepted" || r.status === "driver_assigned" || r.status === "on_the_way") && (
-                  <button onClick={() => onCompleteRide(r.id)} className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 text-xs font-bold text-emerald-500">إتمام الرحلة</button>
-                )}
-              </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </section>
 
@@ -516,10 +722,17 @@ function DashboardHome({
           <div className="space-y-3">
             {notifications.length > 0 ? (
               notifications.map((notification) => (
-                <div key={notification.id} className="rounded-xl border border-border bg-secondary/20 p-3 text-sm text-muted-foreground">{notification.message}</div>
+                <div
+                  key={notification.id}
+                  className="rounded-xl border border-border bg-secondary/20 p-3 text-sm text-muted-foreground"
+                >
+                  {notification.message}
+                </div>
               ))
             ) : (
-              <div className="rounded-xl border border-border bg-secondary/20 p-3 text-sm text-muted-foreground">لا توجد تنبيهات اليوم.</div>
+              <div className="rounded-xl border border-border bg-secondary/20 p-3 text-sm text-muted-foreground">
+                لا توجد تنبيهات اليوم.
+              </div>
             )}
           </div>
         </div>
@@ -529,52 +742,83 @@ function DashboardHome({
       <section className="rounded-2xl border border-white/10 bg-surface/85 p-5">
         <div className="mb-4 flex items-center justify-between gap-3">
           <h3 className="font-display text-lg font-bold">طلبات جاهزة للاستلام</h3>
-          <span className="rounded-full bg-cyan/10 px-3 py-1 text-xs font-bold text-cyan">{deliveryOrders.length}</span>
+          <span className="rounded-full bg-cyan/10 px-3 py-1 text-xs font-bold text-cyan">
+            {deliveryOrders.length}
+          </span>
         </div>
         <div className="space-y-3">
           {deliveryOrders.length === 0 ? (
             <div className="text-sm text-muted-foreground">لا توجد مهام توصيل حالية.</div>
-          ) : deliveryOrders.map((order) => (
-            <div key={order.id} className="flex flex-col gap-3 rounded-2xl border border-border bg-secondary/20 p-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="font-bold">{order.vendorName}</p>
-                <p className="mt-1 text-sm text-muted-foreground">{order.deliveryAddress} · {order.total} شيكل · {order.id}</p>
+          ) : (
+            deliveryOrders.map((order) => (
+              <div
+                key={order.id}
+                className="flex flex-col gap-3 rounded-2xl border border-border bg-secondary/20 p-4 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div>
+                  <p className="font-bold">{order.vendorName}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {order.deliveryAddress} · {order.total} شيكل · {order.id}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => onAcceptDelivery(order.id)}
+                    className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground"
+                  >
+                    استلام الطلب
+                  </button>
+                </div>
               </div>
-              <div className="flex gap-2">
-                <button onClick={() => onAcceptDelivery(order.id)} className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground">استلام الطلب</button>
-              </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </section>
 
       <section className="rounded-2xl border border-white/10 bg-surface/85 p-5">
         <div className="mb-4 flex items-center justify-between gap-3">
           <h3 className="font-display text-lg font-bold">الطلبات المكتملة</h3>
-          <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-500">{completedDeliveryOrders.length}</span>
+          <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-500">
+            {completedDeliveryOrders.length}
+          </span>
         </div>
         <div className="space-y-3">
           {completedDeliveryOrders.length === 0 ? (
             <div className="text-sm text-muted-foreground">لا توجد طلبات مكتملة بعد.</div>
-          ) : completedDeliveryOrders.map((order) => (
-            <div key={order.id} className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-mono text-sm font-bold text-emerald-500">{order.id}</span>
-                    <span className="rounded-full bg-emerald-500/15 px-2.5 py-1 text-[11px] font-bold text-emerald-500">مكتمل</span>
+          ) : (
+            completedDeliveryOrders.map((order) => (
+              <div
+                key={order.id}
+                className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4"
+              >
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-mono text-sm font-bold text-emerald-500">
+                        {order.id}
+                      </span>
+                      <span className="rounded-full bg-emerald-500/15 px-2.5 py-1 text-[11px] font-bold text-emerald-500">
+                        مكتمل
+                      </span>
+                    </div>
+                    <p className="mt-2 text-sm font-semibold">{order.user.name}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {order.items.map((item) => `${item.name} × ${item.quantity}`).join("، ")}
+                    </p>
                   </div>
-                  <p className="mt-2 text-sm font-semibold">{order.user.name}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">{order.items.map((item) => `${item.name} × ${item.quantity}`).join("، ")}</p>
-                </div>
-                <div className="text-sm sm:text-left">
-                  <p className="font-display font-bold text-primary">{order.total} شيكل</p>
-                  <p className="mt-1 text-xs text-muted-foreground">وقت التوصيل: {formatDriverOrderDuration(order)}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">{formatDriverOrderTime(order.completedAt ?? order.updatedAt)}</p>
+                  <div className="text-sm sm:text-left">
+                    <p className="font-display font-bold text-primary">{order.total} شيكل</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      وقت التوصيل: {formatDriverOrderDuration(order)}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {formatDriverOrderTime(order.completedAt ?? order.updatedAt)}
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </section>
     </div>
@@ -601,7 +845,13 @@ function formatDriverOrderTime(value: string) {
   }
 }
 
-function DriverStatusSelector({ status, onChange }: { status: DriverStatus; onChange: (status: DriverStatus) => void }) {
+function DriverStatusSelector({
+  status,
+  onChange,
+}: {
+  status: DriverStatus;
+  onChange: (status: DriverStatus) => void;
+}) {
   const options: { value: DriverStatus; label: string }[] = [
     { value: "online", label: "متصل" },
     { value: "busy", label: "مشغول" },
@@ -636,7 +886,9 @@ function SettingsPanel() {
     <div className="rounded-3xl border border-dashed border-border bg-secondary/15 p-10 text-center">
       <PackageCheck className="mx-auto h-12 w-12 text-muted-foreground/60" />
       <h2 className="mt-4 font-display text-2xl font-bold">إعدادات السائق</h2>
-      <p className="mt-2 text-sm text-muted-foreground">واجهة إعدادات تجريبية جاهزة لإضافة بيانات المركبة، مناطق العمل، والتنبيهات.</p>
+      <p className="mt-2 text-sm text-muted-foreground">
+        واجهة إعدادات تجريبية جاهزة لإضافة بيانات المركبة، مناطق العمل، والتنبيهات.
+      </p>
     </div>
   );
 }
@@ -651,10 +903,10 @@ function MiniDashboardMetric({ label, value }: { label: string; value: string })
 }
 
 function drawerTitle(drawer: DrawerKind) {
-  if (drawer === "trips")    return "تفاصيل رحلات اليوم";
+  if (drawer === "trips") return "تفاصيل رحلات اليوم";
   if (drawer === "earnings") return "تفاصيل أرباح اليوم";
-  if (drawer === "rating")   return "تفاصيل التقييمات";
-  if (drawer === "hours")    return "تفاصيل ساعات العمل";
-  if (drawer === "order")    return "تفاصيل الطلب";
+  if (drawer === "rating") return "تفاصيل التقييمات";
+  if (drawer === "hours") return "تفاصيل ساعات العمل";
+  if (drawer === "order") return "تفاصيل الطلب";
   return "";
 }

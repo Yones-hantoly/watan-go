@@ -31,9 +31,19 @@ import { Route as DashboardRestaurantRouteImport } from './routes/dashboard.rest
 import { Route as DashboardDriverRouteImport } from './routes/dashboard.driver'
 import { Route as DashboardCustomerRouteImport } from './routes/dashboard.customer'
 import { Route as DashboardAdminRouteImport } from './routes/dashboard.admin'
+import { Route as AdministrationDriversRouteImport } from './routes/administration.drivers'
+import { Route as AdminUsersRouteImport } from './routes/admin.users'
+import { Route as AdminStoresRouteImport } from './routes/admin.stores'
+import { Route as AdminRestaurantsRouteImport } from './routes/admin.restaurants'
+import { Route as AdminDriversRouteImport } from './routes/admin.drivers'
 import { Route as OrdersIdTrackingRouteImport } from './routes/orders.$id.tracking'
 import { Route as DashboardRestaurantOrdersRouteImport } from './routes/dashboard.restaurant.orders'
 import { Route as DashboardRestaurantMenuRouteImport } from './routes/dashboard.restaurant.menu'
+import { Route as DashboardAdminUsersRouteImport } from './routes/dashboard.admin.users'
+import { Route as DashboardAdminReportsRouteImport } from './routes/dashboard.admin.reports'
+import { Route as DashboardAdminOrdersRouteImport } from './routes/dashboard.admin.orders'
+import { Route as DashboardAdminMerchantsRouteImport } from './routes/dashboard.admin.merchants'
+import { Route as DashboardAdminDriversRouteImport } from './routes/dashboard.admin.drivers'
 
 const UsersRoute = UsersRouteImport.update({
   id: '/users',
@@ -145,6 +155,31 @@ const DashboardAdminRoute = DashboardAdminRouteImport.update({
   path: '/dashboard/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdministrationDriversRoute = AdministrationDriversRouteImport.update({
+  id: '/administration/drivers',
+  path: '/administration/drivers',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminUsersRoute = AdminUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminStoresRoute = AdminStoresRouteImport.update({
+  id: '/stores',
+  path: '/stores',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminRestaurantsRoute = AdminRestaurantsRouteImport.update({
+  id: '/restaurants',
+  path: '/restaurants',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminDriversRoute = AdminDriversRouteImport.update({
+  id: '/drivers',
+  path: '/drivers',
+  getParentRoute: () => AdminRoute,
+} as any)
 const OrdersIdTrackingRoute = OrdersIdTrackingRouteImport.update({
   id: '/orders/$id/tracking',
   path: '/orders/$id/tracking',
@@ -161,10 +196,35 @@ const DashboardRestaurantMenuRoute = DashboardRestaurantMenuRouteImport.update({
   path: '/menu',
   getParentRoute: () => DashboardRestaurantRoute,
 } as any)
+const DashboardAdminUsersRoute = DashboardAdminUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => DashboardAdminRoute,
+} as any)
+const DashboardAdminReportsRoute = DashboardAdminReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => DashboardAdminRoute,
+} as any)
+const DashboardAdminOrdersRoute = DashboardAdminOrdersRouteImport.update({
+  id: '/orders',
+  path: '/orders',
+  getParentRoute: () => DashboardAdminRoute,
+} as any)
+const DashboardAdminMerchantsRoute = DashboardAdminMerchantsRouteImport.update({
+  id: '/merchants',
+  path: '/merchants',
+  getParentRoute: () => DashboardAdminRoute,
+} as any)
+const DashboardAdminDriversRoute = DashboardAdminDriversRouteImport.update({
+  id: '/drivers',
+  path: '/drivers',
+  getParentRoute: () => DashboardAdminRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
+  '/admin': typeof AdminRouteWithChildren
   '/architecture': typeof ArchitectureRoute
   '/cart': typeof CartRoute
   '/contact': typeof ContactRoute
@@ -178,20 +238,30 @@ export interface FileRoutesByFullPath {
   '/rides': typeof RidesRoute
   '/shops': typeof ShopsRoute
   '/users': typeof UsersRoute
-  '/dashboard/admin': typeof DashboardAdminRoute
+  '/admin/drivers': typeof AdminDriversRoute
+  '/admin/restaurants': typeof AdminRestaurantsRoute
+  '/admin/stores': typeof AdminStoresRoute
+  '/admin/users': typeof AdminUsersRoute
+  '/administration/drivers': typeof AdministrationDriversRoute
+  '/dashboard/admin': typeof DashboardAdminRouteWithChildren
   '/dashboard/customer': typeof DashboardCustomerRoute
   '/dashboard/driver': typeof DashboardDriverRoute
   '/dashboard/restaurant': typeof DashboardRestaurantRouteWithChildren
   '/dashboard/shop': typeof DashboardShopRoute
   '/menu/$restaurantSlug': typeof MenuRestaurantSlugRoute
   '/restaurants/$id': typeof RestaurantsIdRoute
+  '/dashboard/admin/drivers': typeof DashboardAdminDriversRoute
+  '/dashboard/admin/merchants': typeof DashboardAdminMerchantsRoute
+  '/dashboard/admin/orders': typeof DashboardAdminOrdersRoute
+  '/dashboard/admin/reports': typeof DashboardAdminReportsRoute
+  '/dashboard/admin/users': typeof DashboardAdminUsersRoute
   '/dashboard/restaurant/menu': typeof DashboardRestaurantMenuRoute
   '/dashboard/restaurant/orders': typeof DashboardRestaurantOrdersRoute
   '/orders/$id/tracking': typeof OrdersIdTrackingRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
+  '/admin': typeof AdminRouteWithChildren
   '/architecture': typeof ArchitectureRoute
   '/cart': typeof CartRoute
   '/contact': typeof ContactRoute
@@ -205,13 +275,23 @@ export interface FileRoutesByTo {
   '/rides': typeof RidesRoute
   '/shops': typeof ShopsRoute
   '/users': typeof UsersRoute
-  '/dashboard/admin': typeof DashboardAdminRoute
+  '/admin/drivers': typeof AdminDriversRoute
+  '/admin/restaurants': typeof AdminRestaurantsRoute
+  '/admin/stores': typeof AdminStoresRoute
+  '/admin/users': typeof AdminUsersRoute
+  '/administration/drivers': typeof AdministrationDriversRoute
+  '/dashboard/admin': typeof DashboardAdminRouteWithChildren
   '/dashboard/customer': typeof DashboardCustomerRoute
   '/dashboard/driver': typeof DashboardDriverRoute
   '/dashboard/restaurant': typeof DashboardRestaurantRouteWithChildren
   '/dashboard/shop': typeof DashboardShopRoute
   '/menu/$restaurantSlug': typeof MenuRestaurantSlugRoute
   '/restaurants/$id': typeof RestaurantsIdRoute
+  '/dashboard/admin/drivers': typeof DashboardAdminDriversRoute
+  '/dashboard/admin/merchants': typeof DashboardAdminMerchantsRoute
+  '/dashboard/admin/orders': typeof DashboardAdminOrdersRoute
+  '/dashboard/admin/reports': typeof DashboardAdminReportsRoute
+  '/dashboard/admin/users': typeof DashboardAdminUsersRoute
   '/dashboard/restaurant/menu': typeof DashboardRestaurantMenuRoute
   '/dashboard/restaurant/orders': typeof DashboardRestaurantOrdersRoute
   '/orders/$id/tracking': typeof OrdersIdTrackingRoute
@@ -219,7 +299,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
+  '/admin': typeof AdminRouteWithChildren
   '/architecture': typeof ArchitectureRoute
   '/cart': typeof CartRoute
   '/contact': typeof ContactRoute
@@ -233,13 +313,23 @@ export interface FileRoutesById {
   '/rides': typeof RidesRoute
   '/shops': typeof ShopsRoute
   '/users': typeof UsersRoute
-  '/dashboard/admin': typeof DashboardAdminRoute
+  '/admin/drivers': typeof AdminDriversRoute
+  '/admin/restaurants': typeof AdminRestaurantsRoute
+  '/admin/stores': typeof AdminStoresRoute
+  '/admin/users': typeof AdminUsersRoute
+  '/administration/drivers': typeof AdministrationDriversRoute
+  '/dashboard/admin': typeof DashboardAdminRouteWithChildren
   '/dashboard/customer': typeof DashboardCustomerRoute
   '/dashboard/driver': typeof DashboardDriverRoute
   '/dashboard/restaurant': typeof DashboardRestaurantRouteWithChildren
   '/dashboard/shop': typeof DashboardShopRoute
   '/menu/$restaurantSlug': typeof MenuRestaurantSlugRoute
   '/restaurants/$id': typeof RestaurantsIdRoute
+  '/dashboard/admin/drivers': typeof DashboardAdminDriversRoute
+  '/dashboard/admin/merchants': typeof DashboardAdminMerchantsRoute
+  '/dashboard/admin/orders': typeof DashboardAdminOrdersRoute
+  '/dashboard/admin/reports': typeof DashboardAdminReportsRoute
+  '/dashboard/admin/users': typeof DashboardAdminUsersRoute
   '/dashboard/restaurant/menu': typeof DashboardRestaurantMenuRoute
   '/dashboard/restaurant/orders': typeof DashboardRestaurantOrdersRoute
   '/orders/$id/tracking': typeof OrdersIdTrackingRoute
@@ -262,6 +352,11 @@ export interface FileRouteTypes {
     | '/rides'
     | '/shops'
     | '/users'
+    | '/admin/drivers'
+    | '/admin/restaurants'
+    | '/admin/stores'
+    | '/admin/users'
+    | '/administration/drivers'
     | '/dashboard/admin'
     | '/dashboard/customer'
     | '/dashboard/driver'
@@ -269,6 +364,11 @@ export interface FileRouteTypes {
     | '/dashboard/shop'
     | '/menu/$restaurantSlug'
     | '/restaurants/$id'
+    | '/dashboard/admin/drivers'
+    | '/dashboard/admin/merchants'
+    | '/dashboard/admin/orders'
+    | '/dashboard/admin/reports'
+    | '/dashboard/admin/users'
     | '/dashboard/restaurant/menu'
     | '/dashboard/restaurant/orders'
     | '/orders/$id/tracking'
@@ -289,6 +389,11 @@ export interface FileRouteTypes {
     | '/rides'
     | '/shops'
     | '/users'
+    | '/admin/drivers'
+    | '/admin/restaurants'
+    | '/admin/stores'
+    | '/admin/users'
+    | '/administration/drivers'
     | '/dashboard/admin'
     | '/dashboard/customer'
     | '/dashboard/driver'
@@ -296,6 +401,11 @@ export interface FileRouteTypes {
     | '/dashboard/shop'
     | '/menu/$restaurantSlug'
     | '/restaurants/$id'
+    | '/dashboard/admin/drivers'
+    | '/dashboard/admin/merchants'
+    | '/dashboard/admin/orders'
+    | '/dashboard/admin/reports'
+    | '/dashboard/admin/users'
     | '/dashboard/restaurant/menu'
     | '/dashboard/restaurant/orders'
     | '/orders/$id/tracking'
@@ -316,6 +426,11 @@ export interface FileRouteTypes {
     | '/rides'
     | '/shops'
     | '/users'
+    | '/admin/drivers'
+    | '/admin/restaurants'
+    | '/admin/stores'
+    | '/admin/users'
+    | '/administration/drivers'
     | '/dashboard/admin'
     | '/dashboard/customer'
     | '/dashboard/driver'
@@ -323,6 +438,11 @@ export interface FileRouteTypes {
     | '/dashboard/shop'
     | '/menu/$restaurantSlug'
     | '/restaurants/$id'
+    | '/dashboard/admin/drivers'
+    | '/dashboard/admin/merchants'
+    | '/dashboard/admin/orders'
+    | '/dashboard/admin/reports'
+    | '/dashboard/admin/users'
     | '/dashboard/restaurant/menu'
     | '/dashboard/restaurant/orders'
     | '/orders/$id/tracking'
@@ -330,7 +450,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AdminRoute: typeof AdminRoute
+  AdminRoute: typeof AdminRouteWithChildren
   ArchitectureRoute: typeof ArchitectureRoute
   CartRoute: typeof CartRoute
   ContactRoute: typeof ContactRoute
@@ -344,7 +464,8 @@ export interface RootRouteChildren {
   RidesRoute: typeof RidesRoute
   ShopsRoute: typeof ShopsRoute
   UsersRoute: typeof UsersRoute
-  DashboardAdminRoute: typeof DashboardAdminRoute
+  AdministrationDriversRoute: typeof AdministrationDriversRoute
+  DashboardAdminRoute: typeof DashboardAdminRouteWithChildren
   DashboardCustomerRoute: typeof DashboardCustomerRoute
   DashboardDriverRoute: typeof DashboardDriverRoute
   DashboardRestaurantRoute: typeof DashboardRestaurantRouteWithChildren
@@ -509,6 +630,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardAdminRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/administration/drivers': {
+      id: '/administration/drivers'
+      path: '/administration/drivers'
+      fullPath: '/administration/drivers'
+      preLoaderRoute: typeof AdministrationDriversRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/users': {
+      id: '/admin/users'
+      path: '/users'
+      fullPath: '/admin/users'
+      preLoaderRoute: typeof AdminUsersRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/stores': {
+      id: '/admin/stores'
+      path: '/stores'
+      fullPath: '/admin/stores'
+      preLoaderRoute: typeof AdminStoresRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/restaurants': {
+      id: '/admin/restaurants'
+      path: '/restaurants'
+      fullPath: '/admin/restaurants'
+      preLoaderRoute: typeof AdminRestaurantsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/drivers': {
+      id: '/admin/drivers'
+      path: '/drivers'
+      fullPath: '/admin/drivers'
+      preLoaderRoute: typeof AdminDriversRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/orders/$id/tracking': {
       id: '/orders/$id/tracking'
       path: '/orders/$id/tracking'
@@ -530,8 +686,59 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardRestaurantMenuRouteImport
       parentRoute: typeof DashboardRestaurantRoute
     }
+    '/dashboard/admin/users': {
+      id: '/dashboard/admin/users'
+      path: '/users'
+      fullPath: '/dashboard/admin/users'
+      preLoaderRoute: typeof DashboardAdminUsersRouteImport
+      parentRoute: typeof DashboardAdminRoute
+    }
+    '/dashboard/admin/reports': {
+      id: '/dashboard/admin/reports'
+      path: '/reports'
+      fullPath: '/dashboard/admin/reports'
+      preLoaderRoute: typeof DashboardAdminReportsRouteImport
+      parentRoute: typeof DashboardAdminRoute
+    }
+    '/dashboard/admin/orders': {
+      id: '/dashboard/admin/orders'
+      path: '/orders'
+      fullPath: '/dashboard/admin/orders'
+      preLoaderRoute: typeof DashboardAdminOrdersRouteImport
+      parentRoute: typeof DashboardAdminRoute
+    }
+    '/dashboard/admin/merchants': {
+      id: '/dashboard/admin/merchants'
+      path: '/merchants'
+      fullPath: '/dashboard/admin/merchants'
+      preLoaderRoute: typeof DashboardAdminMerchantsRouteImport
+      parentRoute: typeof DashboardAdminRoute
+    }
+    '/dashboard/admin/drivers': {
+      id: '/dashboard/admin/drivers'
+      path: '/drivers'
+      fullPath: '/dashboard/admin/drivers'
+      preLoaderRoute: typeof DashboardAdminDriversRouteImport
+      parentRoute: typeof DashboardAdminRoute
+    }
   }
 }
+
+interface AdminRouteChildren {
+  AdminDriversRoute: typeof AdminDriversRoute
+  AdminRestaurantsRoute: typeof AdminRestaurantsRoute
+  AdminStoresRoute: typeof AdminStoresRoute
+  AdminUsersRoute: typeof AdminUsersRoute
+}
+
+const AdminRouteChildren: AdminRouteChildren = {
+  AdminDriversRoute: AdminDriversRoute,
+  AdminRestaurantsRoute: AdminRestaurantsRoute,
+  AdminStoresRoute: AdminStoresRoute,
+  AdminUsersRoute: AdminUsersRoute,
+}
+
+const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
 interface RestaurantsRouteChildren {
   RestaurantsIdRoute: typeof RestaurantsIdRoute
@@ -543,6 +750,26 @@ const RestaurantsRouteChildren: RestaurantsRouteChildren = {
 
 const RestaurantsRouteWithChildren = RestaurantsRoute._addFileChildren(
   RestaurantsRouteChildren,
+)
+
+interface DashboardAdminRouteChildren {
+  DashboardAdminDriversRoute: typeof DashboardAdminDriversRoute
+  DashboardAdminMerchantsRoute: typeof DashboardAdminMerchantsRoute
+  DashboardAdminOrdersRoute: typeof DashboardAdminOrdersRoute
+  DashboardAdminReportsRoute: typeof DashboardAdminReportsRoute
+  DashboardAdminUsersRoute: typeof DashboardAdminUsersRoute
+}
+
+const DashboardAdminRouteChildren: DashboardAdminRouteChildren = {
+  DashboardAdminDriversRoute: DashboardAdminDriversRoute,
+  DashboardAdminMerchantsRoute: DashboardAdminMerchantsRoute,
+  DashboardAdminOrdersRoute: DashboardAdminOrdersRoute,
+  DashboardAdminReportsRoute: DashboardAdminReportsRoute,
+  DashboardAdminUsersRoute: DashboardAdminUsersRoute,
+}
+
+const DashboardAdminRouteWithChildren = DashboardAdminRoute._addFileChildren(
+  DashboardAdminRouteChildren,
 )
 
 interface DashboardRestaurantRouteChildren {
@@ -560,7 +787,7 @@ const DashboardRestaurantRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AdminRoute: AdminRoute,
+  AdminRoute: AdminRouteWithChildren,
   ArchitectureRoute: ArchitectureRoute,
   CartRoute: CartRoute,
   ContactRoute: ContactRoute,
@@ -574,7 +801,8 @@ const rootRouteChildren: RootRouteChildren = {
   RidesRoute: RidesRoute,
   ShopsRoute: ShopsRoute,
   UsersRoute: UsersRoute,
-  DashboardAdminRoute: DashboardAdminRoute,
+  AdministrationDriversRoute: AdministrationDriversRoute,
+  DashboardAdminRoute: DashboardAdminRouteWithChildren,
   DashboardCustomerRoute: DashboardCustomerRoute,
   DashboardDriverRoute: DashboardDriverRoute,
   DashboardRestaurantRoute: DashboardRestaurantRouteWithChildren,

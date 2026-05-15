@@ -1,6 +1,19 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
-import { CheckCircle2, ChefHat, Clock3, ClipboardList, ImageIcon, PackageCheck, Pencil, Plus, Tag, Trash2, TrendingUp, XCircle } from "lucide-react";
+import {
+  CheckCircle2,
+  ChefHat,
+  Clock3,
+  ClipboardList,
+  ImageIcon,
+  PackageCheck,
+  Pencil,
+  Plus,
+  Tag,
+  Trash2,
+  TrendingUp,
+  XCircle,
+} from "lucide-react";
 import { toast } from "sonner";
 import { StatCard } from "@/components/dashboard-shell";
 import { cn } from "@/lib/utils";
@@ -37,7 +50,8 @@ const initialRestaurantMeals: RestaurantMeal[] = [
     description: "شاورما دجاج مع بطاطا، مخلل، وثومية بيتية.",
     price: "24",
     category: "شاورما",
-    image: "https://images.unsplash.com/photo-1529006557810-274b9b2fc783?auto=format&fit=crop&w=600&q=80",
+    image:
+      "https://images.unsplash.com/photo-1529006557810-274b9b2fc783?auto=format&fit=crop&w=600&q=80",
     prepTime: "18 دقيقة",
     available: true,
   },
@@ -47,7 +61,8 @@ const initialRestaurantMeals: RestaurantMeal[] = [
     description: "لحم مشوي، جبنة، خس، وطماطم مع صوص خاص.",
     price: "28",
     category: "برجر",
-    image: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=600&q=80",
+    image:
+      "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=600&q=80",
     prepTime: "15 دقيقة",
     available: true,
   },
@@ -57,7 +72,8 @@ const initialRestaurantMeals: RestaurantMeal[] = [
     description: "تشكيلة كباب وشيش طاووق مع سلطات وخبز طازج.",
     price: "65",
     category: "مشاوي",
-    image: "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=600&q=80",
+    image:
+      "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=600&q=80",
     prepTime: "25 دقيقة",
     available: false,
   },
@@ -73,12 +89,33 @@ const emptyMealForm: Omit<RestaurantMeal, "id"> = {
   available: true,
 };
 
-const restaurantTabs: Array<{ view: RestaurantView; to: "/dashboard/restaurant/orders" | "/dashboard/restaurant/menu"; label: string; icon: ReactNode }> = [
-  { view: "orders", to: "/dashboard/restaurant/orders", label: "إدارة الطلبات", icon: <ClipboardList className="h-4 w-4" /> },
-  { view: "menu", to: "/dashboard/restaurant/menu", label: "القائمة", icon: <ChefHat className="h-4 w-4" /> },
+const restaurantTabs: Array<{
+  view: RestaurantView;
+  to: "/dashboard/restaurant/orders" | "/dashboard/restaurant/menu";
+  label: string;
+  icon: ReactNode;
+}> = [
+  {
+    view: "orders",
+    to: "/dashboard/restaurant/orders",
+    label: "إدارة الطلبات",
+    icon: <ClipboardList className="h-4 w-4" />,
+  },
+  {
+    view: "menu",
+    to: "/dashboard/restaurant/menu",
+    label: "القائمة",
+    icon: <ChefHat className="h-4 w-4" />,
+  },
 ];
 
-export function RestaurantDashboardPage({ user, view = "orders" }: { user: AuthUser; view?: RestaurantView }) {
+export function RestaurantDashboardPage({
+  user,
+  view = "orders",
+}: {
+  user: AuthUser;
+  view?: RestaurantView;
+}) {
   return (
     <RestaurantDashboardLayout user={user}>
       {view === "menu" ? <RestaurantMenuManagementPanel /> : <RestaurantOrdersManagementPanel />}
@@ -99,7 +136,9 @@ function RestaurantDashboardLayout({ user, children }: { user: AuthUser; childre
       <section className="space-y-5">
         <div>
           <h1 className="font-display text-3xl font-bold">لوحة المطعم</h1>
-          <p className="mt-2 text-muted-foreground">{user.name} · أدر طلباتك وقائمتك من مكان واحد</p>
+          <p className="mt-2 text-muted-foreground">
+            {user.name} · أدر طلباتك وقائمتك من مكان واحد
+          </p>
         </div>
 
         <nav className="flex w-full flex-wrap gap-2 rounded-xl border border-border bg-secondary/30 p-1.5 sm:w-fit">
@@ -150,8 +189,13 @@ function RestaurantOrdersPanel({ user }: { user: AuthUser }) {
     return subscribeToOrders(refresh);
   }, []);
 
-  const activeOrders = orders.filter((order) => order.status !== "completed" && order.status !== "delivered" && order.status !== "cancelled");
-  const completedOrders = orders.filter((order) => order.status === "completed" || order.status === "delivered");
+  const activeOrders = orders.filter(
+    (order) =>
+      order.status !== "completed" && order.status !== "delivered" && order.status !== "cancelled",
+  );
+  const completedOrders = orders.filter(
+    (order) => order.status === "completed" || order.status === "delivered",
+  );
 
   return (
     <div className="space-y-8">
@@ -174,7 +218,9 @@ function RestaurantOrdersPanel({ user }: { user: AuthUser }) {
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-mono text-sm font-bold text-cyan">{order.id}</span>
-                      <span className="rounded-full bg-primary/20 px-2 py-0.5 text-[10px] font-bold text-primary">{order.status}</span>
+                      <span className="rounded-full bg-primary/20 px-2 py-0.5 text-[10px] font-bold text-primary">
+                        {order.status}
+                      </span>
                     </div>
                     <div className="mt-1 text-sm text-muted-foreground">
                       {order.items.map((item) => `${item.name} × ${item.quantity}`).join("، ")}
@@ -182,10 +228,30 @@ function RestaurantOrdersPanel({ user }: { user: AuthUser }) {
                     <OrderProgress order={order} />
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <button onClick={() => setStatus(order.id, "accepted")} className="rounded-lg bg-primary px-3 py-2 text-xs font-bold text-primary-foreground">قبول</button>
-                    <button onClick={() => setStatus(order.id, "preparing")} className="rounded-lg border border-border bg-secondary px-3 py-2 text-xs font-bold">تحضير</button>
-                    <button onClick={() => advanceStatus(order.id)} className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs font-bold text-emerald-500">التالي</button>
-                    <button onClick={() => setStatus(order.id, "cancelled")} className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs font-bold text-destructive">رفض</button>
+                    <button
+                      onClick={() => setStatus(order.id, "accepted")}
+                      className="rounded-lg bg-primary px-3 py-2 text-xs font-bold text-primary-foreground"
+                    >
+                      قبول
+                    </button>
+                    <button
+                      onClick={() => setStatus(order.id, "preparing")}
+                      className="rounded-lg border border-border bg-secondary px-3 py-2 text-xs font-bold"
+                    >
+                      تحضير
+                    </button>
+                    <button
+                      onClick={() => advanceStatus(order.id)}
+                      className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs font-bold text-emerald-500"
+                    >
+                      التالي
+                    </button>
+                    <button
+                      onClick={() => setStatus(order.id, "cancelled")}
+                      className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs font-bold text-destructive"
+                    >
+                      رفض
+                    </button>
                   </div>
                 </div>
               </div>
@@ -201,14 +267,19 @@ function RestaurantOrdersPanel({ user }: { user: AuthUser }) {
             <div className="text-sm text-muted-foreground">لا توجد طلبات مكتملة بعد.</div>
           ) : (
             completedOrders.map((order) => (
-              <div key={order.id} className="flex items-center justify-between rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4">
+              <div
+                key={order.id}
+                className="flex items-center justify-between rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4"
+              >
                 <div>
                   <span className="font-mono text-sm font-bold text-emerald-500">{order.id}</span>
                   <div className="mt-1 text-sm text-muted-foreground">
                     {order.items.map((item) => `${item.name} × ${item.quantity}`).join("، ")}
                   </div>
                 </div>
-                <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-bold text-emerald-500">مكتمل</span>
+                <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-bold text-emerald-500">
+                  مكتمل
+                </span>
               </div>
             ))
           )}
@@ -222,7 +293,10 @@ function RestaurantOrdersPanel({ user }: { user: AuthUser }) {
             <h2 className="font-display text-lg font-bold">قائمتي</h2>
           </div>
           <p className="mt-2 text-sm text-muted-foreground">٢٤ صنف نشط · ٣ غير متوفر</p>
-          <Link to="/dashboard/restaurant/menu" className="mt-3 inline-flex rounded-lg border border-border bg-secondary/40 px-3 py-2 text-xs font-semibold">
+          <Link
+            to="/dashboard/restaurant/menu"
+            className="mt-3 inline-flex rounded-lg border border-border bg-secondary/40 px-3 py-2 text-xs font-semibold"
+          >
             إدارة القائمة
           </Link>
         </div>
@@ -249,10 +323,14 @@ function RestaurantOrdersManagementPanel() {
   };
 
   const newOrders = orders.filter((order) => order.status === "pending");
-  const preparingOrders = orders.filter((order) => order.status === "accepted" || order.status === "preparing");
+  const preparingOrders = orders.filter(
+    (order) => order.status === "accepted" || order.status === "preparing",
+  );
   const readyOrders = orders.filter((order) => order.status === "ready_for_pickup");
   const rejectedOrders = orders.filter((order) => order.status === "cancelled");
-  const completedOrders = orders.filter((order) => order.status === "completed" || order.status === "delivered");
+  const completedOrders = orders.filter(
+    (order) => order.status === "completed" || order.status === "delivered",
+  );
 
   return (
     <div className="space-y-8">
@@ -260,7 +338,11 @@ function RestaurantOrdersManagementPanel() {
         <StatCard label="الطلبات الجديدة" value={String(newOrders.length)} accent="primary" />
         <StatCard label="قيد التحضير" value={String(preparingOrders.length)} accent="amber" />
         <StatCard label="جاهزة للاستلام" value={String(readyOrders.length)} accent="cyan" />
-        <StatCard label="الطلبات المكتملة" value={String(completedOrders.length)} accent="primary" />
+        <StatCard
+          label="الطلبات المكتملة"
+          value={String(completedOrders.length)}
+          accent="primary"
+        />
       </section>
 
       <section className="grid gap-5 xl:grid-cols-2">
@@ -273,7 +355,9 @@ function RestaurantOrdersManagementPanel() {
             <>
               <button
                 type="button"
-                onClick={() => updateRestaurantOrder(order.id, "accepted", "تم قبول الطلب ونقله إلى التحضير")}
+                onClick={() =>
+                  updateRestaurantOrder(order.id, "accepted", "تم قبول الطلب ونقله إلى التحضير")
+                }
                 className="rounded-lg bg-primary px-3 py-2 text-xs font-bold text-primary-foreground"
               >
                 قبول
@@ -306,14 +390,22 @@ function RestaurantOrdersManagementPanel() {
                   بدء التحضير
                 </button>
               ) : null}
-              <button
-                type="button"
-                onClick={() => updateRestaurantOrder(order.id, "ready_for_pickup", "تم وضع الطلب كجاهز للاستلام")}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-cyan/40 bg-cyan/10 px-3 py-2 text-xs font-bold text-cyan"
-              >
-                <PackageCheck className="h-3.5 w-3.5" />
-                جاهز للاستلام
-              </button>
+              {order.status === "preparing" ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    updateRestaurantOrder(
+                      order.id,
+                      "ready_for_pickup",
+                      "تم وضع الطلب كجاهز للاستلام",
+                    )
+                  }
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-cyan/40 bg-cyan/10 px-3 py-2 text-xs font-bold text-cyan"
+                >
+                  <PackageCheck className="h-3.5 w-3.5" />
+                  جاهز للاستلام
+                </button>
+              ) : null}
             </>
           )}
         />
@@ -376,7 +468,9 @@ function RestaurantOrderSection({
             {emptyText}
           </div>
         ) : (
-          orders.map((order) => <RestaurantOrderCard key={order.id} order={order} actions={actions(order)} />)
+          orders.map((order) => (
+            <RestaurantOrderCard key={order.id} order={order} actions={actions(order)} />
+          ))
         )}
       </div>
     </section>
@@ -393,7 +487,9 @@ function RestaurantOrderCard({ order, actions }: { order: Order; actions: ReactN
             <OrderStatusBadge status={order.status} />
           </div>
           <div className="mt-2 text-sm font-semibold">{order.user.name}</div>
-          <div className="mt-1 text-xs text-muted-foreground">{formatOrderTime(order.createdAt)}</div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            {formatOrderTime(order.createdAt)}
+          </div>
         </div>
         <div className="font-mono text-sm font-bold text-primary">{order.total} ₪</div>
       </div>
@@ -412,7 +508,9 @@ function RestaurantOrderCard({ order, actions }: { order: Order; actions: ReactN
         </div>
         <div className="rounded-lg bg-background/60 p-3">
           <div className="text-xs font-bold text-muted-foreground">حالة الطلب</div>
-          <div className="mt-1 text-sm font-semibold">{restaurantOrderStatusLabel(order.status)}</div>
+          <div className="mt-1 text-sm font-semibold">
+            {restaurantOrderStatusLabel(order.status)}
+          </div>
         </div>
       </div>
 
@@ -423,7 +521,12 @@ function RestaurantOrderCard({ order, actions }: { order: Order; actions: ReactN
 
 function OrderStatusBadge({ status }: { status: Order["status"] }) {
   return (
-    <span className={cn("rounded-full px-2.5 py-1 text-[10px] font-bold", restaurantOrderStatusClass(status))}>
+    <span
+      className={cn(
+        "rounded-full px-2.5 py-1 text-[10px] font-bold",
+        restaurantOrderStatusClass(status),
+      )}
+    >
       {restaurantOrderStatusLabel(status)}
     </span>
   );
@@ -536,7 +639,11 @@ function RestaurantMenuManagementPanel() {
     };
 
     if (editingId) {
-      setMeals((current) => current.map((meal) => (meal.id === editingId ? { ...normalizedMeal, id: editingId } : meal)));
+      setMeals((current) =>
+        current.map((meal) =>
+          meal.id === editingId ? { ...normalizedMeal, id: editingId } : meal,
+        ),
+      );
       toast.success("تم تعديل وجبة");
     } else {
       setMeals((current) => [{ ...normalizedMeal, id: `meal-${Date.now()}` }, ...current]);
@@ -553,7 +660,9 @@ function RestaurantMenuManagementPanel() {
   };
 
   const toggleMealAvailability = (mealId: string) => {
-    setMeals((current) => current.map((meal) => (meal.id === mealId ? { ...meal, available: !meal.available } : meal)));
+    setMeals((current) =>
+      current.map((meal) => (meal.id === mealId ? { ...meal, available: !meal.available } : meal)),
+    );
   };
 
   return (
@@ -569,7 +678,10 @@ function RestaurantMenuManagementPanel() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="font-display text-xl font-bold">قائمة الوجبات</h2>
-            <p className="mt-1 text-sm text-muted-foreground">إدارة الوجبات: إضافة وجبة جديدة، تعديل وجبة، حذف وجبة، السعر، صورة الوجبة، التصنيف، وحالة التوفر.</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              إدارة الوجبات: إضافة وجبة جديدة، تعديل وجبة، حذف وجبة، السعر، صورة الوجبة، التصنيف،
+              وحالة التوفر.
+            </p>
           </div>
           <button
             type="button"
@@ -582,10 +694,17 @@ function RestaurantMenuManagementPanel() {
         </div>
 
         {isFormOpen ? (
-          <form onSubmit={saveMeal} className="mt-5 rounded-xl border border-border bg-secondary/25 p-4">
+          <form
+            onSubmit={saveMeal}
+            className="mt-5 rounded-xl border border-border bg-secondary/25 p-4"
+          >
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <h3 className="font-display text-lg font-bold">{formTitle}</h3>
-              <button type="button" onClick={resetForm} className="w-fit rounded-lg border border-border bg-background/70 px-3 py-2 text-xs font-semibold">
+              <button
+                type="button"
+                onClick={resetForm}
+                className="w-fit rounded-lg border border-border bg-background/70 px-3 py-2 text-xs font-semibold"
+              >
                 إلغاء
               </button>
             </div>
@@ -595,7 +714,9 @@ function RestaurantMenuManagementPanel() {
                 <span>اسم الوجبة</span>
                 <input
                   value={form.name}
-                  onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, name: event.target.value }))
+                  }
                   className="h-11 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary"
                   placeholder="مثال: وجبة شاورما دجاج"
                 />
@@ -604,7 +725,9 @@ function RestaurantMenuManagementPanel() {
                 <span>السعر</span>
                 <input
                   value={form.price}
-                  onChange={(event) => setForm((current) => ({ ...current, price: event.target.value }))}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, price: event.target.value }))
+                  }
                   className="h-11 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary"
                   placeholder="24"
                   inputMode="decimal"
@@ -614,11 +737,18 @@ function RestaurantMenuManagementPanel() {
                 <span>التصنيف</span>
                 <select
                   value={form.category}
-                  onChange={(event) => setForm((current) => ({ ...current, category: event.target.value as MealCategory }))}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      category: event.target.value as MealCategory,
+                    }))
+                  }
                   className="h-11 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary"
                 >
                   {mealCategories.map((category) => (
-                    <option key={category} value={category}>{category}</option>
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
                   ))}
                 </select>
               </label>
@@ -626,7 +756,9 @@ function RestaurantMenuManagementPanel() {
                 <span>مدة التحضير</span>
                 <input
                   value={form.prepTime}
-                  onChange={(event) => setForm((current) => ({ ...current, prepTime: event.target.value }))}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, prepTime: event.target.value }))
+                  }
                   className="h-11 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary"
                   placeholder="15 دقيقة"
                 />
@@ -635,7 +767,9 @@ function RestaurantMenuManagementPanel() {
                 <span>صورة الوجبة</span>
                 <input
                   value={form.image}
-                  onChange={(event) => setForm((current) => ({ ...current, image: event.target.value }))}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, image: event.target.value }))
+                  }
                   className="h-11 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary"
                   placeholder="رابط صورة الوجبة"
                   dir="ltr"
@@ -645,7 +779,9 @@ function RestaurantMenuManagementPanel() {
                 <span>الوصف</span>
                 <textarea
                   value={form.description}
-                  onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, description: event.target.value }))
+                  }
                   className="min-h-24 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
                   placeholder="وصف مختصر يظهر في بطاقة الوجبة"
                 />
@@ -654,7 +790,9 @@ function RestaurantMenuManagementPanel() {
                 <input
                   type="checkbox"
                   checked={form.available}
-                  onChange={(event) => setForm((current) => ({ ...current, available: event.target.checked }))}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, available: event.target.checked }))
+                  }
                   className="h-4 w-4 accent-primary"
                 />
                 حالة التوفر
@@ -662,7 +800,10 @@ function RestaurantMenuManagementPanel() {
             </div>
 
             <div className="mt-5">
-              <button type="submit" className="rounded-lg bg-primary px-4 py-2 text-sm font-bold text-primary-foreground">
+              <button
+                type="submit"
+                className="rounded-lg bg-primary px-4 py-2 text-sm font-bold text-primary-foreground"
+              >
                 {editingId ? "حفظ تعديل وجبة" : "إضافة وجبة جديدة"}
               </button>
             </div>
@@ -671,7 +812,10 @@ function RestaurantMenuManagementPanel() {
 
         <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {meals.map((meal) => (
-            <article key={meal.id} className="overflow-hidden rounded-xl border border-border bg-secondary/30">
+            <article
+              key={meal.id}
+              className="overflow-hidden rounded-xl border border-border bg-secondary/30"
+            >
               <div className="relative aspect-[16/10] bg-secondary">
                 {meal.image ? (
                   <img src={meal.image} alt={meal.name} className="h-full w-full object-cover" />
@@ -694,9 +838,13 @@ function RestaurantMenuManagementPanel() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <h3 className="truncate font-display text-lg font-bold">{meal.name}</h3>
-                    <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{meal.description}</p>
+                    <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
+                      {meal.description}
+                    </p>
                   </div>
-                  <span className="shrink-0 font-mono text-sm font-bold text-cyan">{meal.price} ₪</span>
+                  <span className="shrink-0 font-mono text-sm font-bold text-cyan">
+                    {meal.price} ₪
+                  </span>
                 </div>
 
                 <div className="mt-4 flex flex-wrap gap-2 text-xs text-muted-foreground">
@@ -760,9 +908,13 @@ function RestaurantMenuPanel() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="font-display text-xl font-bold">القائمة</h2>
-            <p className="mt-1 text-sm text-muted-foreground">تابع الأصناف والأسعار وحالة التوفر بسرعة.</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              تابع الأصناف والأسعار وحالة التوفر بسرعة.
+            </p>
           </div>
-          <button className="w-fit rounded-lg bg-primary px-4 py-2 text-sm font-bold text-primary-foreground">إضافة صنف</button>
+          <button className="w-fit rounded-lg bg-primary px-4 py-2 text-sm font-bold text-primary-foreground">
+            إضافة صنف
+          </button>
         </div>
 
         <div className="mt-5 grid gap-3 md:grid-cols-3">
@@ -780,7 +932,9 @@ function RestaurantMenuPanel() {
                 <span
                   className={cn(
                     "rounded-full px-2 py-1 text-[10px] font-bold",
-                    item.status === "متوفر" ? "bg-emerald-500/15 text-emerald-500" : "bg-amber/15 text-amber",
+                    item.status === "متوفر"
+                      ? "bg-emerald-500/15 text-emerald-500"
+                      : "bg-amber/15 text-amber",
                   )}
                 >
                   {item.status}
@@ -788,7 +942,9 @@ function RestaurantMenuPanel() {
               </div>
               <div className="mt-4 flex items-center justify-between">
                 <span className="font-mono text-sm font-bold text-cyan">{item.price}</span>
-                <button className="rounded-lg border border-border bg-background/70 px-3 py-2 text-xs font-semibold">تعديل</button>
+                <button className="rounded-lg border border-border bg-background/70 px-3 py-2 text-xs font-semibold">
+                  تعديل
+                </button>
               </div>
             </div>
           ))}

@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { Outlet, createFileRoute, useRouterState } from "@tanstack/react-router";
 import { ShieldCheck, Users, UserCheck, Building2, BarChart3, FileBarChart } from "lucide-react";
 import { PageHero, FeatureCard, SectionHeading } from "@/components/ui-bits";
 
@@ -23,6 +23,12 @@ const features = [
 ];
 
 function AdminPage() {
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+
+  if (pathname !== "/admin") {
+    return <Outlet />;
+  }
+
   return (
     <>
       <PageHero

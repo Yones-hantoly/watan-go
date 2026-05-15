@@ -68,20 +68,202 @@ const CART_EVENT = "watan-go-cart-updated";
 const ORDERS_EVENT = "watan-go-orders-updated";
 
 export const groceryItems: GroceryItem[] = [
-  { id: "milk-1l",    category: "بقالة",        name: "حليب طازج 1 لتر",    description: "حليب يومي كامل الدسم",          price: 6,  image: "🥛", storeId: "city-market",   storeName: "ماركت المدينة", rating: 4.8, inStock: true,  isPopular: true,  isNew: false },
-  { id: "bread",     category: "بقالة",        name: "خبز عربي",           description: "كيس خبز طازج",                  price: 4,  image: "🥖", storeId: "city-market",   storeName: "ماركت المدينة", rating: 4.6, inStock: true,  isPopular: true,  isNew: false },
-  { id: "rice",      category: "بقالة",        name: "أرز بسمتي 1 كغ",    description: "أرز طويل الحبة",                 price: 12, image: "🍚", storeId: "city-market",   storeName: "ماركت المدينة", rating: 4.5, inStock: true,  isPopular: false, isNew: false },
-  { id: "apples",    category: "خضار وفواكه",  name: "تفاح أحمر",          description: "كيلو تفاح طازج",                 price: 9,  image: "🍎", storeId: "fresh-grocery", storeName: "بقالة الطازج",  rating: 4.7, inStock: true,  isPopular: true,  isNew: false },
-  { id: "tomatoes",  category: "خضار وفواكه",  name: "بندورة",             description: "كيلو بندورة بلدية",              price: 5,  image: "🍅", storeId: "fresh-grocery", storeName: "بقالة الطازج",  rating: 4.4, inStock: true,  isPopular: false, isNew: false },
-  { id: "shampoo",   category: "منزلية",       name: "شامبو عائلي",        description: "عبوة 400 مل",                    price: 18, image: "🧴", storeId: "home-plus",     storeName: "هوم بلس",       rating: 4.2, inStock: false, isPopular: false, isNew: false },
-  { id: "eggs",      category: "بقالة",        name: "بيض بلدي 12 حبة",   description: "بيض طازج من مزارع محلية",         price: 14, image: "🥚", storeId: "city-market",   storeName: "ماركت المدينة", rating: 4.9, inStock: true,  isPopular: true,  isNew: false },
-  { id: "olive-oil", category: "بقالة",        name: "زيت زيتون بكر 750مل",description: "زيت زيتون فلسطيني أصيل",          price: 35, image: "🫒", storeId: "city-market",   storeName: "ماركت المدينة", rating: 4.9, inStock: true,  isPopular: true,  isNew: true  },
-  { id: "bananas",   category: "خضار وفواكه",  name: "موز",                description: "كيلو موز طازج",                  price: 7,  image: "🍌", storeId: "fresh-grocery", storeName: "بقالة الطازج",  rating: 4.3, inStock: true,  isPopular: false, isNew: false },
-  { id: "cucumber",  category: "خضار وفواكه",  name: "خيار",               description: "كيلو خيار طازج",                 price: 4,  image: "🥒", storeId: "fresh-grocery", storeName: "بقالة الطازج",  rating: 4.1, inStock: true,  isPopular: false, isNew: false },
-  { id: "yogurt",    category: "ألبان",         name: "لبن زبادي 500غ",     description: "زبادي طبيعي كامل الدسم",          price: 8,  image: "🍶", storeId: "city-market",   storeName: "ماركت المدينة", rating: 4.6, inStock: true,  isPopular: false, isNew: true  },
-  { id: "cheese",    category: "ألبان",         name: "جبنة بيضاء 250غ",    description: "جبنة طازجة قليلة الملح",          price: 16, image: "🧀", storeId: "city-market",   storeName: "ماركت المدينة", rating: 4.7, inStock: true,  isPopular: true,  isNew: false },
-  { id: "detergent", category: "منزلية",       name: "مسحوق غسيل 1 كغ",   description: "مسحوق تنظيف قوي للملابس",        price: 22, image: "🧺", storeId: "home-plus",     storeName: "هوم بلس",       rating: 4.0, inStock: true,  isPopular: false, isNew: false },
-  { id: "tissues",   category: "منزلية",       name: "مناديل ورقية 200 ورقة",description: "مناديل ناعمة متعددة الاستخدام",  price: 9,  image: "🧻", storeId: "home-plus",     storeName: "هوم بلس",       rating: 4.3, inStock: true,  isPopular: false, isNew: true  },
+  {
+    id: "milk-1l",
+    category: "بقالة",
+    name: "حليب طازج 1 لتر",
+    description: "حليب يومي كامل الدسم",
+    price: 6,
+    image: "🥛",
+    storeId: "city-market",
+    storeName: "ماركت المدينة",
+    rating: 4.8,
+    inStock: true,
+    isPopular: true,
+    isNew: false,
+  },
+  {
+    id: "bread",
+    category: "بقالة",
+    name: "خبز عربي",
+    description: "كيس خبز طازج",
+    price: 4,
+    image: "🥖",
+    storeId: "city-market",
+    storeName: "ماركت المدينة",
+    rating: 4.6,
+    inStock: true,
+    isPopular: true,
+    isNew: false,
+  },
+  {
+    id: "rice",
+    category: "بقالة",
+    name: "أرز بسمتي 1 كغ",
+    description: "أرز طويل الحبة",
+    price: 12,
+    image: "🍚",
+    storeId: "city-market",
+    storeName: "ماركت المدينة",
+    rating: 4.5,
+    inStock: true,
+    isPopular: false,
+    isNew: false,
+  },
+  {
+    id: "apples",
+    category: "خضار وفواكه",
+    name: "تفاح أحمر",
+    description: "كيلو تفاح طازج",
+    price: 9,
+    image: "🍎",
+    storeId: "fresh-grocery",
+    storeName: "بقالة الطازج",
+    rating: 4.7,
+    inStock: true,
+    isPopular: true,
+    isNew: false,
+  },
+  {
+    id: "tomatoes",
+    category: "خضار وفواكه",
+    name: "بندورة",
+    description: "كيلو بندورة بلدية",
+    price: 5,
+    image: "🍅",
+    storeId: "fresh-grocery",
+    storeName: "بقالة الطازج",
+    rating: 4.4,
+    inStock: true,
+    isPopular: false,
+    isNew: false,
+  },
+  {
+    id: "shampoo",
+    category: "منزلية",
+    name: "شامبو عائلي",
+    description: "عبوة 400 مل",
+    price: 18,
+    image: "🧴",
+    storeId: "home-plus",
+    storeName: "هوم بلس",
+    rating: 4.2,
+    inStock: false,
+    isPopular: false,
+    isNew: false,
+  },
+  {
+    id: "eggs",
+    category: "بقالة",
+    name: "بيض بلدي 12 حبة",
+    description: "بيض طازج من مزارع محلية",
+    price: 14,
+    image: "🥚",
+    storeId: "city-market",
+    storeName: "ماركت المدينة",
+    rating: 4.9,
+    inStock: true,
+    isPopular: true,
+    isNew: false,
+  },
+  {
+    id: "olive-oil",
+    category: "بقالة",
+    name: "زيت زيتون بكر 750مل",
+    description: "زيت زيتون فلسطيني أصيل",
+    price: 35,
+    image: "🫒",
+    storeId: "city-market",
+    storeName: "ماركت المدينة",
+    rating: 4.9,
+    inStock: true,
+    isPopular: true,
+    isNew: true,
+  },
+  {
+    id: "bananas",
+    category: "خضار وفواكه",
+    name: "موز",
+    description: "كيلو موز طازج",
+    price: 7,
+    image: "🍌",
+    storeId: "fresh-grocery",
+    storeName: "بقالة الطازج",
+    rating: 4.3,
+    inStock: true,
+    isPopular: false,
+    isNew: false,
+  },
+  {
+    id: "cucumber",
+    category: "خضار وفواكه",
+    name: "خيار",
+    description: "كيلو خيار طازج",
+    price: 4,
+    image: "🥒",
+    storeId: "fresh-grocery",
+    storeName: "بقالة الطازج",
+    rating: 4.1,
+    inStock: true,
+    isPopular: false,
+    isNew: false,
+  },
+  {
+    id: "yogurt",
+    category: "ألبان",
+    name: "لبن زبادي 500غ",
+    description: "زبادي طبيعي كامل الدسم",
+    price: 8,
+    image: "🍶",
+    storeId: "city-market",
+    storeName: "ماركت المدينة",
+    rating: 4.6,
+    inStock: true,
+    isPopular: false,
+    isNew: true,
+  },
+  {
+    id: "cheese",
+    category: "ألبان",
+    name: "جبنة بيضاء 250غ",
+    description: "جبنة طازجة قليلة الملح",
+    price: 16,
+    image: "🧀",
+    storeId: "city-market",
+    storeName: "ماركت المدينة",
+    rating: 4.7,
+    inStock: true,
+    isPopular: true,
+    isNew: false,
+  },
+  {
+    id: "detergent",
+    category: "منزلية",
+    name: "مسحوق غسيل 1 كغ",
+    description: "مسحوق تنظيف قوي للملابس",
+    price: 22,
+    image: "🧺",
+    storeId: "home-plus",
+    storeName: "هوم بلس",
+    rating: 4.0,
+    inStock: true,
+    isPopular: false,
+    isNew: false,
+  },
+  {
+    id: "tissues",
+    category: "منزلية",
+    name: "مناديل ورقية 200 ورقة",
+    description: "مناديل ناعمة متعددة الاستخدام",
+    price: 9,
+    image: "🧻",
+    storeId: "home-plus",
+    storeName: "هوم بلس",
+    rating: 4.3,
+    inStock: true,
+    isPopular: false,
+    isNew: true,
+  },
 ];
 
 function readJson<T>(key: string, fallback: T): T {
@@ -139,7 +321,9 @@ export function getCartCount() {
 
 export function addCartItem(item: Omit<CartItem, "quantity">) {
   const cart = getCartItems();
-  const existing = cart.find((cartItem) => cartItem.id === item.id && cartItem.vendorId === item.vendorId);
+  const existing = cart.find(
+    (cartItem) => cartItem.id === item.id && cartItem.vendorId === item.vendorId,
+  );
   const nextCart = existing
     ? cart.map((cartItem) =>
         cartItem.id === item.id && cartItem.vendorId === item.vendorId
@@ -211,6 +395,7 @@ export function createOrder(user: AuthUser, deliveryAddress: string) {
     deliveryAddress,
     status: "pending",
     driverStatus: "pending",
+    deliveryStage: "created",
     createdAt: now,
     updatedAt: now,
   };
@@ -252,18 +437,25 @@ export function updateDriverStatus(
             ...order,
             driverStatus: nextDriverStatus,
             deliveryStage:
-              nextDriverStatus === "accepted" ? "ready_for_pickup" :
-              nextDriverStatus === "picked_up" ? "picked_up" :
-              nextDriverStatus === "on_the_way" ? "on_the_way" :
-              nextDriverStatus === "completed" ? "completed" :
-              order.deliveryStage,
+              nextDriverStatus === "accepted"
+                ? "ready_for_pickup"
+                : nextDriverStatus === "picked_up"
+                  ? "picked_up"
+                  : nextDriverStatus === "on_the_way"
+                    ? "on_the_way"
+                    : nextDriverStatus === "completed"
+                      ? "completed"
+                      : order.deliveryStage,
             driverName: driver?.name ?? order.driverName,
             driverPhone: driver?.phone ?? order.driverPhone,
             status:
-              nextDriverStatus === "picked_up" ? "picked_up" :
-              nextDriverStatus === "on_the_way" ? "on_the_way" :
-              nextDriverStatus === "completed" ? "completed" :
-              order.status,
+              nextDriverStatus === "picked_up"
+                ? "picked_up"
+                : nextDriverStatus === "on_the_way"
+                  ? "on_the_way"
+                  : nextDriverStatus === "completed"
+                    ? "completed"
+                    : order.status,
             updatedAt: now,
             completedAt: nextDriverStatus === "completed" ? now : order.completedAt,
           }
@@ -280,8 +472,12 @@ export function normalizeDriverStatus(status: Order["driverStatus"]): Order["dri
   return status === "delivered" ? "completed" : status;
 }
 
-function statusToDeliveryStage(status: OrderStatus, currentStage?: DeliveryStage): DeliveryStage | undefined {
+function statusToDeliveryStage(
+  status: OrderStatus,
+  currentStage?: DeliveryStage,
+): DeliveryStage | undefined {
   if (
+    status === "pending" ||
     status === "accepted" ||
     status === "preparing" ||
     status === "ready_for_pickup" ||
@@ -289,7 +485,7 @@ function statusToDeliveryStage(status: OrderStatus, currentStage?: DeliveryStage
     status === "on_the_way" ||
     status === "completed"
   ) {
-    return status;
+    return status === "pending" ? "created" : status;
   }
   return currentStage;
 }

@@ -1,11 +1,27 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { motion } from "framer-motion";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { DashboardShell } from "@/components/dashboard-shell";
-import { DELIVERY_STAGES, getOrderDeliveryStage, isFinalDeliveryStage, setOrderDeliveryStage, type DeliveryStage } from "@/lib/delivery-flow";
-import { getOrders, subscribeToOrders, updateOrderStatus, type Order } from "@/lib/commerce";
+import {
+  DELIVERY_STAGES,
+  getOrderDeliveryStage,
+  isFinalDeliveryStage,
+  type DeliveryStage,
+} from "@/lib/delivery-flow";
+import { getOrders, subscribeToOrders, type Order } from "@/lib/commerce";
 import { cn } from "@/lib/utils";
-import { ArrowRight, CheckCircle2, Clock3, MapPin, Navigation, PackageCheck, RadioTower, Store, UserRound } from "lucide-react";
+import {
+  ArrowRight,
+  CheckCircle2,
+  Clock3,
+  MapPin,
+  Navigation,
+  PackageCheck,
+  RadioTower,
+  Store,
+  UserRound,
+} from "lucide-react";
 import type * as L from "leaflet";
 
 export const Route = createFileRoute("/orders/$id/tracking")({
@@ -20,9 +36,10 @@ type Coords = { lat: number; lng: number };
 
 const CUSTOMER_BASE: Coords = { lat: 31.9072, lng: 35.2045 };
 const RESTAURANT_BASE: Coords = { lat: 31.9004, lng: 35.1986 };
-const SIMULATION_INTERVAL_MS = 4500;
+const DRIVER_MAP_TICK_MS = 4500;
 
 const TRACKING_DESCRIPTIONS: Record<Exclude<DeliveryStage, "delivered">, string> = {
+  created: "تم إنشاء الطلب بنجاح، وبانتظار مراجعة المطعم أو المتجر.",
   accepted: "تمت مراجعة الطلب وتأكيده من المطعم أو المتجر.",
   preparing: "الفريق يجهز طلبك الآن وسيتم إشعار السائق عند الجاهزية.",
   ready_for_pickup: "الطلب جاهز، والسائق متواجد عند نقطة الاستلام.",
@@ -49,10 +66,16 @@ function OrderTrackingPage({ customerPhone }: { customerPhone: string }) {
   }, [customerPhone, id]);
 
   const route = useMemo(() => (order ? createOrderRoute(order) : null), [order]);
-  const activeStage = order ? getOrderDeliveryStage(order) : "accepted";
+  const activeStage = order ? getOrderDeliveryStage(order) : "created";
   const isComplete = isFinalDeliveryStage(activeStage);
   const progressPercent = getProgressPercent(activeStage);
-  const etaMinutes = route ? getEtaMinutes(route.customer, driverCoords ?? getDriverPositionForStage(activeStage, route, progressRef.current), activeStage) : 0;
+  const etaMinutes = route
+    ? getEtaMinutes(
+        route.customer,
+        driverCoords ?? getDriverPositionForStage(activeStage, route, progressRef.current),
+        activeStage,
+      )
+    : 0;
 
   useEffect(() => {
     if (!order || !route) return;
@@ -71,19 +94,13 @@ function OrderTrackingPage({ customerPhone }: { customerPhone: string }) {
       if (isFinalDeliveryStage(latestStage)) return;
 
       if (latestStage === "picked_up" || latestStage === "on_the_way") {
-        progressRef.current = Math.min(1, progressRef.current + (latestStage === "picked_up" ? 0.18 : 0.24));
+        progressRef.current = Math.min(
+          1,
+          progressRef.current + (latestStage === "picked_up" ? 0.18 : 0.24),
+        );
         setDriverCoords(getDriverPositionForStage(latestStage, route, progressRef.current));
       }
-
-      const nextStage = getNextSimulatedStage(latestStage, progressRef.current);
-      if (!nextStage || nextStage === latestStage) return;
-
-      if (nextStage === "accepted" || nextStage === "preparing" || nextStage === "ready_for_pickup") {
-        updateOrderStatus(latestOrder.id, nextStage);
-      } else {
-        setOrderDeliveryStage(latestOrder.id, nextStage);
-      }
-    }, SIMULATION_INTERVAL_MS);
+    }, DRIVER_MAP_TICK_MS);
 
     return () => window.clearInterval(timer);
   }, [isComplete, order, route]);
@@ -93,8 +110,13 @@ function OrderTrackingPage({ customerPhone }: { customerPhone: string }) {
       <section className="mx-auto max-w-3xl px-4 py-16 text-center">
         <PackageCheck className="mx-auto h-12 w-12 text-muted-foreground/60" />
         <h1 className="mt-4 font-display text-2xl font-bold">لم يتم العثور على الطلب</h1>
-        <p className="mt-2 text-sm text-muted-foreground">قد لا يكون الطلب تابعاً لحسابك أو تم حذفه من التخزين المحلي.</p>
-        <Link to="/dashboard/customer" className="mt-6 inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-bold text-primary-foreground">
+        <p className="mt-2 text-sm text-muted-foreground">
+          قد لا يكون الطلب تابعاً لحسابك أو تم حذفه من التخزين المحلي.
+        </p>
+        <Link
+          to="/dashboard/customer"
+          className="mt-6 inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-bold text-primary-foreground"
+        >
           <ArrowRight className="h-4 w-4" />
           العودة للطلبات
         </Link>
@@ -119,14 +141,30 @@ function OrderTrackingPage({ customerPhone }: { customerPhone: string }) {
               </span>
               <StatusBadge stage={activeStage} status={order.status} />
             </div>
-            <h1 className="mt-3 font-display text-2xl font-bold sm:text-3xl">تتبع الطلب {order.id}</h1>
-            <p className="mt-1 text-sm text-muted-foreground">{order.vendorName} إلى {order.deliveryAddress}</p>
+            <h1 className="mt-3 font-display text-2xl font-bold sm:text-3xl">
+              تتبع الطلب {order.id}
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {order.vendorName} إلى {order.deliveryAddress}
+            </p>
           </div>
         </div>
         <div className="grid gap-3 sm:grid-cols-3 lg:min-w-[480px]">
-          <InfoCell icon={<UserRound className="h-4 w-4" />} label="العميل" value={order.user.name} />
-          <InfoCell icon={<Navigation className="h-4 w-4" />} label="السائق" value={order.driverName ?? "سائق وطن جو"} />
-          <InfoCell icon={<Clock3 className="h-4 w-4" />} label="الوصول المتوقع" value={isComplete ? "تم التسليم" : `${etaMinutes} دقيقة`} />
+          <InfoCell
+            icon={<UserRound className="h-4 w-4" />}
+            label="العميل"
+            value={order.user.name}
+          />
+          <InfoCell
+            icon={<Navigation className="h-4 w-4" />}
+            label="السائق"
+            value={order.driverName ?? "سائق وطن جو"}
+          />
+          <InfoCell
+            icon={<Clock3 className="h-4 w-4" />}
+            label="الوصول المتوقع"
+            value={isComplete ? "تم التسليم" : `${etaMinutes} دقيقة`}
+          />
         </div>
       </section>
 
@@ -136,7 +174,9 @@ function OrderTrackingPage({ customerPhone }: { customerPhone: string }) {
             <div>
               <p className="text-sm font-bold text-orange-500">حالة الطلب الحالية</p>
               <h2 className="mt-1 font-display text-xl font-bold">{getStageLabel(activeStage)}</h2>
-              <p className="mt-1 text-sm text-muted-foreground">{TRACKING_DESCRIPTIONS[normalizeStage(activeStage)]}</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {TRACKING_DESCRIPTIONS[normalizeStage(activeStage)]}
+              </p>
             </div>
             <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-primary/25 bg-primary/10 text-center font-display text-lg font-bold text-primary">
               {progressPercent}%
@@ -144,7 +184,10 @@ function OrderTrackingPage({ customerPhone }: { customerPhone: string }) {
           </div>
 
           <div className="mt-5 h-2 overflow-hidden rounded-full bg-secondary">
-            <div className="h-full rounded-full bg-gradient-to-l from-emerald-500 via-cyan to-orange-500 transition-all duration-700" style={{ width: `${progressPercent}%` }} />
+            <div
+              className="h-full rounded-full bg-gradient-to-l from-emerald-500 via-cyan to-orange-500 transition-all duration-700"
+              style={{ width: `${progressPercent}%` }}
+            />
           </div>
 
           <DeliveryTimeline activeStage={activeStage} />
@@ -156,7 +199,9 @@ function OrderTrackingPage({ customerPhone }: { customerPhone: string }) {
             order={order}
             route={route}
             stage={activeStage}
-            driverCoords={driverCoords ?? getDriverPositionForStage(activeStage, route, progressRef.current)}
+            driverCoords={
+              driverCoords ?? getDriverPositionForStage(activeStage, route, progressRef.current)
+            }
           />
         </div>
       </section>
@@ -174,43 +219,87 @@ function DeliveryTimeline({ activeStage }: { activeStage: DeliveryStage }) {
         const done = activeIndex > index || final;
         const current = activeIndex === index && !final;
         return (
-          <div key={step.id} className="flex gap-3">
+          <motion.div
+            key={step.id}
+            layout
+            initial={{ opacity: 0, x: 16 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: index * 0.04, duration: 0.22 }}
+            className="flex gap-3"
+          >
             <div className="flex flex-col items-center">
               <span
                 className={cn(
                   "flex h-10 w-10 items-center justify-center rounded-full border text-sm font-bold transition-all duration-300",
                   done && "border-emerald-500 bg-emerald-500/15 text-emerald-500",
-                  current && "scale-105 animate-pulse border-orange-500 bg-orange-500 text-white shadow-lg shadow-orange-500/25",
+                  current &&
+                    "scale-105 animate-pulse border-orange-500 bg-orange-500 text-white shadow-lg shadow-orange-500/25",
                   !done && !current && "border-border bg-secondary/50 text-muted-foreground",
                 )}
               >
                 {done ? <CheckCircle2 className="h-4 w-4" /> : index + 1}
               </span>
               {index < DELIVERY_STAGES.length - 1 && (
-                <span className={cn("h-12 w-px transition-colors", done ? "bg-emerald-500" : "bg-border")} />
+                <span
+                  className={cn(
+                    "h-12 w-px transition-colors",
+                    done ? "bg-emerald-500" : "bg-border",
+                  )}
+                />
               )}
             </div>
             <div className="min-w-0 pb-5 pt-1.5">
-              <p className={cn("font-bold", done && "text-emerald-500", current && "text-orange-500", !done && !current && "text-muted-foreground")}>
+              <p
+                className={cn(
+                  "font-bold",
+                  done && "text-emerald-500",
+                  current && "text-orange-500",
+                  !done && !current && "text-muted-foreground",
+                )}
+              >
                 {step.label}
               </p>
-              <p className="mt-1 text-xs leading-5 text-muted-foreground">{TRACKING_DESCRIPTIONS[normalizeStage(step.id)]}</p>
+              {current && <p className="mt-1 text-xs font-bold text-cyan">جاري الآن</p>}
+              {done && <p className="mt-1 text-xs font-bold text-emerald-500">مكتملة</p>}
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                {TRACKING_DESCRIPTIONS[normalizeStage(step.id)]}
+              </p>
             </div>
-          </div>
+          </motion.div>
         );
       })}
     </div>
   );
 }
 
-function OrderInfoPanel({ order, stage, etaMinutes }: { order: Order; stage: DeliveryStage; etaMinutes: number }) {
+function OrderInfoPanel({
+  order,
+  stage,
+  etaMinutes,
+}: {
+  order: Order;
+  stage: DeliveryStage;
+  etaMinutes: number;
+}) {
   return (
     <div className="rounded-3xl border border-white/10 bg-surface/85 p-5">
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <InfoCell icon={<PackageCheck className="h-4 w-4" />} label="رقم الطلب" value={order.id} />
-        <InfoCell icon={<Store className="h-4 w-4" />} label={order.type === "food" ? "المطعم" : "المتجر"} value={order.vendorName} />
-        <InfoCell icon={<Clock3 className="h-4 w-4" />} label="الوقت المتبقي" value={isFinalDeliveryStage(stage) ? "اكتمل" : `${etaMinutes} دقيقة`} />
-        <InfoCell icon={<MapPin className="h-4 w-4" />} label="الإجمالي" value={`${order.total} شيكل`} />
+        <InfoCell
+          icon={<Store className="h-4 w-4" />}
+          label={order.type === "food" ? "المطعم" : "المتجر"}
+          value={order.vendorName}
+        />
+        <InfoCell
+          icon={<Clock3 className="h-4 w-4" />}
+          label="الوقت المتبقي"
+          value={isFinalDeliveryStage(stage) ? "اكتمل" : `${etaMinutes} دقيقة`}
+        />
+        <InfoCell
+          icon={<MapPin className="h-4 w-4" />}
+          label="الإجمالي"
+          value={`${order.total} شيكل`}
+        />
       </div>
     </div>
   );
@@ -264,29 +353,64 @@ function CustomerLiveTrackingMap({
         attributionControl: false,
       });
 
-      lf.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19 }).addTo(map);
+      lf.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19 }).addTo(
+        map,
+      );
       lf.control.zoom({ position: "topleft" }).addTo(map);
       lf.control.attribution({ position: "bottomleft", prefix: "OpenStreetMap" }).addTo(map);
 
-      vendorMarkerRef.current = lf.marker([route.vendor.lat, route.vendor.lng], {
-        icon: lf.divIcon({ className: "", html: markerHtml("vendor"), iconSize: [38, 38], iconAnchor: [19, 38] }),
-      }).addTo(map).bindPopup(order.vendorName);
+      vendorMarkerRef.current = lf
+        .marker([route.vendor.lat, route.vendor.lng], {
+          icon: lf.divIcon({
+            className: "",
+            html: markerHtml("vendor"),
+            iconSize: [38, 38],
+            iconAnchor: [19, 38],
+          }),
+        })
+        .addTo(map)
+        .bindPopup(order.vendorName);
 
-      customerMarkerRef.current = lf.marker([route.customer.lat, route.customer.lng], {
-        icon: lf.divIcon({ className: "", html: markerHtml("customer"), iconSize: [38, 38], iconAnchor: [19, 38] }),
-      }).addTo(map).bindPopup(order.deliveryAddress);
+      customerMarkerRef.current = lf
+        .marker([route.customer.lat, route.customer.lng], {
+          icon: lf.divIcon({
+            className: "",
+            html: markerHtml("customer"),
+            iconSize: [38, 38],
+            iconAnchor: [19, 38],
+          }),
+        })
+        .addTo(map)
+        .bindPopup(order.deliveryAddress);
 
-      driverMarkerRef.current = lf.marker([driverCoords.lat, driverCoords.lng], {
-        icon: lf.divIcon({ className: "", html: markerHtml("driver"), iconSize: [44, 44], iconAnchor: [22, 22] }),
-        zIndexOffset: 1000,
-      }).addTo(map).bindPopup(order.driverName ?? "سائق وطن جو");
+      driverMarkerRef.current = lf
+        .marker([driverCoords.lat, driverCoords.lng], {
+          icon: lf.divIcon({
+            className: "",
+            html: markerHtml("driver"),
+            iconSize: [44, 44],
+            iconAnchor: [22, 22],
+          }),
+          zIndexOffset: 1000,
+        })
+        .addTo(map)
+        .bindPopup(order.driverName ?? "سائق وطن جو");
 
-      routeLineRef.current = lf.polyline([[route.vendor.lat, route.vendor.lng], [route.midpoint.lat, route.midpoint.lng], [route.customer.lat, route.customer.lng]], {
-        color: "#8b5cf6",
-        weight: 5,
-        opacity: 0.85,
-        dashArray: "12 8",
-      }).addTo(map);
+      routeLineRef.current = lf
+        .polyline(
+          [
+            [route.vendor.lat, route.vendor.lng],
+            [route.midpoint.lat, route.midpoint.lng],
+            [route.customer.lat, route.customer.lng],
+          ],
+          {
+            color: "#8b5cf6",
+            weight: 5,
+            opacity: 0.85,
+            dashArray: "12 8",
+          },
+        )
+        .addTo(map);
 
       const bounds = lf.latLngBounds([
         [route.vendor.lat, route.vendor.lng],
@@ -313,7 +437,10 @@ function CustomerLiveTrackingMap({
     if (!lf || !map || !ready) return;
 
     driverMarkerRef.current?.setLatLng([driverCoords.lat, driverCoords.lng]);
-    routeLineRef.current?.setLatLngs([[driverCoords.lat, driverCoords.lng], [route.customer.lat, route.customer.lng]]);
+    routeLineRef.current?.setLatLngs([
+      [driverCoords.lat, driverCoords.lng],
+      [route.customer.lat, route.customer.lng],
+    ]);
 
     const bounds = lf.latLngBounds([
       [route.vendor.lat, route.vendor.lng],
@@ -353,7 +480,10 @@ function CustomerLiveTrackingMap({
             جاري تحميل الخريطة...
           </div>
         )}
-        <div ref={containerRef} className="h-full w-full dark:[filter:brightness(0.82)_contrast(1.08)_saturate(0.85)]" />
+        <div
+          ref={containerRef}
+          className="h-full w-full dark:[filter:brightness(0.82)_contrast(1.08)_saturate(0.85)]"
+        />
       </div>
     </div>
   );
@@ -408,10 +538,16 @@ function interpolate(a: Coords, b: Coords, t: number): Coords {
   };
 }
 
-function getDriverPositionForStage(stage: DeliveryStage, route: TrackingRoute, progress: number): Coords {
+function getDriverPositionForStage(
+  stage: DeliveryStage,
+  route: TrackingRoute,
+  progress: number,
+): Coords {
   if (stage === "completed" || stage === "delivered") return route.customer;
-  if (stage === "on_the_way") return interpolate(route.midpoint, route.customer, Math.max(0.15, progress));
-  if (stage === "picked_up") return interpolate(route.vendor, route.midpoint, Math.max(0.05, progress));
+  if (stage === "on_the_way")
+    return interpolate(route.midpoint, route.customer, Math.max(0.15, progress));
+  if (stage === "picked_up")
+    return interpolate(route.vendor, route.midpoint, Math.max(0.05, progress));
   return route.vendor;
 }
 
@@ -422,18 +558,9 @@ function getInitialMovementProgress(stage: DeliveryStage) {
   return 0;
 }
 
-function getNextSimulatedStage(stage: DeliveryStage, progress: number): DeliveryStage | null {
-  if (stage === "accepted") return "preparing";
-  if (stage === "preparing") return "ready_for_pickup";
-  if (stage === "ready_for_pickup") return "picked_up";
-  if (stage === "picked_up" && progress >= 0.55) return "on_the_way";
-  if (stage === "on_the_way" && progress >= 0.98) return "completed";
-  return null;
-}
-
 function getEtaMinutes(customer: Coords, driver: Coords, stage: DeliveryStage) {
   if (stage === "completed" || stage === "delivered") return 0;
-  if (stage === "accepted" || stage === "preparing") return 24;
+  if (stage === "created" || stage === "accepted" || stage === "preparing") return 24;
   if (stage === "ready_for_pickup") return 18;
   const distance = haversineKm(customer, driver);
   return Math.max(2, Math.round((distance / 28) * 60));
@@ -466,7 +593,11 @@ function getStageLabel(stage: DeliveryStage) {
 
 function StatusBadge({ stage, status }: { stage: DeliveryStage; status: Order["status"] }) {
   if (status === "cancelled") {
-    return <span className="rounded-full bg-destructive/15 px-3 py-1 text-xs font-bold text-destructive">تم إلغاء الطلب</span>;
+    return (
+      <span className="rounded-full bg-destructive/15 px-3 py-1 text-xs font-bold text-destructive">
+        تم إلغاء الطلب
+      </span>
+    );
   }
 
   return (

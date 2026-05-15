@@ -1,13 +1,17 @@
-import {
-  getOrders,
-  saveOrders,
-  type Order,
-  type OrderStatus,
-} from "@/lib/commerce";
+import { getOrders, saveOrders, type Order, type OrderStatus } from "@/lib/commerce";
 
-export type DeliveryStage = "accepted" | "preparing" | "ready_for_pickup" | "picked_up" | "on_the_way" | "completed" | "delivered";
+export type DeliveryStage =
+  | "created"
+  | "accepted"
+  | "preparing"
+  | "ready_for_pickup"
+  | "picked_up"
+  | "on_the_way"
+  | "completed"
+  | "delivered";
 
 export const DELIVERY_STAGES: { id: DeliveryStage; label: string }[] = [
+  { id: "created", label: "تم إنشاء الطلب" },
   { id: "accepted", label: "تم قبول الطلب" },
   { id: "preparing", label: "قيد التجهيز" },
   { id: "ready_for_pickup", label: "جاهز للاستلام" },
@@ -18,16 +22,25 @@ export const DELIVERY_STAGES: { id: DeliveryStage; label: string }[] = [
 
 export const FINAL_DELIVERY_STAGE: DeliveryStage = "completed";
 
-export function getOrderDeliveryStage(order: Pick<Order, "deliveryStage" | "status" | "driverStatus">): DeliveryStage {
-  if (order.deliveryStage) return order.deliveryStage === "delivered" ? "completed" : order.deliveryStage;
-  if (order.status === "completed" || order.status === "delivered" || order.driverStatus === "completed" || order.driverStatus === "delivered") return "completed";
+export function getOrderDeliveryStage(
+  order: Pick<Order, "deliveryStage" | "status" | "driverStatus">,
+): DeliveryStage {
+  if (order.deliveryStage)
+    return order.deliveryStage === "delivered" ? "completed" : order.deliveryStage;
+  if (
+    order.status === "completed" ||
+    order.status === "delivered" ||
+    order.driverStatus === "completed" ||
+    order.driverStatus === "delivered"
+  )
+    return "completed";
   if (order.status === "on_the_way") return "on_the_way";
   if (order.driverStatus === "on_the_way") return "on_the_way";
   if (order.status === "picked_up" || order.driverStatus === "picked_up") return "picked_up";
   if (order.status === "ready_for_pickup") return "ready_for_pickup";
   if (order.status === "preparing") return "preparing";
   if (order.driverStatus === "accepted" || order.status === "accepted") return "accepted";
-  return "accepted";
+  return "created";
 }
 
 export function getNextDeliveryStage(stage: DeliveryStage) {
@@ -62,7 +75,7 @@ export function setOrderDeliveryStage(orderId: string, stage: DeliveryStage) {
       updatedOrder = {
         ...order,
         deliveryStage: nextStage,
-        driverStatus: stageToDriverStatus(nextStage),
+        driverStatus: stageToDriverStatus(nextStage, order.driverStatus),
         status: stageToOrderStatus(nextStage, order.status),
         updatedAt: now,
         completedAt: isFinalDeliveryStage(nextStage) ? now : order.completedAt,
@@ -74,11 +87,21 @@ export function setOrderDeliveryStage(orderId: string, stage: DeliveryStage) {
   return updatedOrder;
 }
 
-function stageToDriverStatus(stage: DeliveryStage): Order["driverStatus"] {
+function stageToDriverStatus(
+  stage: DeliveryStage,
+  currentStatus: Order["driverStatus"],
+): Order["driverStatus"] {
   if (stage === "picked_up") return "picked_up";
   if (stage === "on_the_way") return "on_the_way";
   if (stage === "completed" || stage === "delivered") return "completed";
-  return "accepted";
+  if (
+    stage === "created" ||
+    stage === "accepted" ||
+    stage === "preparing" ||
+    stage === "ready_for_pickup"
+  )
+    return "pending";
+  return currentStatus;
 }
 
 function stageToOrderStatus(stage: DeliveryStage, currentStatus: OrderStatus): OrderStatus {
@@ -87,6 +110,8 @@ function stageToOrderStatus(stage: DeliveryStage, currentStatus: OrderStatus): O
   if (stage === "picked_up") return "picked_up";
   if (stage === "ready_for_pickup") return "ready_for_pickup";
   if (stage === "preparing") return "preparing";
+  if (stage === "accepted") return "accepted";
+  if (stage === "created") return "pending";
   if (currentStatus === "pending") return "accepted";
   return currentStatus === "delivered" ? "completed" : currentStatus;
 }
