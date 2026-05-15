@@ -64,7 +64,7 @@ export function DeliverySection({
                   order={activeTracking}
                   onComplete={onCompleteTracking ?? (() => {})}
                   canComplete={!activeDeliveryStage || isFinalDeliveryStage(activeDeliveryStage)}
-                  completeLabel="إنهاء الطلب"
+                  completeLabel="تم التسليم"
                   initialDriverCoords={lastDriverCoords}
                   onDriverLocationChange={onDriverLocationChange}
                 />
@@ -230,16 +230,12 @@ function DeliveryTimeline({
       {hasActiveOrder && (
         <div className="mt-5 border-t border-border/70 pt-4">
           {final ? (
-            <button
-              onClick={onFinish}
-              disabled={!onFinish}
-              className="w-full rounded-xl bg-emerald-600 px-3 py-2 text-sm font-bold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              تم
-            </button>
+            <div className="rounded-xl bg-emerald-500/15 px-3 py-2 text-center text-sm font-bold text-emerald-500">
+              تم التسليم بنجاح
+            </div>
           ) : (
             <button onClick={handleNext} className="w-full rounded-xl bg-primary px-3 py-2 text-sm font-bold text-primary-foreground transition hover:bg-primary/90">
-              التالي
+              {displayedStage === "on_the_way" ? "تم التسليم" : displayedStage === "picked_up" ? "في الطريق" : "التالي"}
             </button>
           )}
         </div>

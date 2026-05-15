@@ -150,8 +150,8 @@ function RestaurantOrdersPanel({ user }: { user: AuthUser }) {
     return subscribeToOrders(refresh);
   }, []);
 
-  const activeOrders = orders.filter((order) => order.status !== "delivered" && order.status !== "cancelled");
-  const completedOrders = orders.filter((order) => order.status === "delivered");
+  const activeOrders = orders.filter((order) => order.status !== "completed" && order.status !== "delivered" && order.status !== "cancelled");
+  const completedOrders = orders.filter((order) => order.status === "completed" || order.status === "delivered");
 
   return (
     <div className="space-y-8">
@@ -251,9 +251,8 @@ function RestaurantOrdersManagementPanel() {
   const newOrders = orders.filter((order) => order.status === "pending");
   const preparingOrders = orders.filter((order) => order.status === "accepted" || order.status === "preparing");
   const readyOrders = orders.filter((order) => order.status === "ready_for_pickup");
-  const completedOrders = orders.filter(
-    (order) => order.status === "delivered" || order.status === "rejected" || order.status === "cancelled",
-  );
+  const rejectedOrders = orders.filter((order) => order.status === "cancelled");
+  const completedOrders = orders.filter((order) => order.status === "completed" || order.status === "delivered");
 
   return (
     <div className="space-y-8">
@@ -281,7 +280,7 @@ function RestaurantOrdersManagementPanel() {
               </button>
               <button
                 type="button"
-                onClick={() => updateRestaurantOrder(order.id, "rejected", "تم رفض الطلب")}
+                onClick={() => updateRestaurantOrder(order.id, "cancelled", "تم رفض الطلب")}
                 className="inline-flex items-center gap-1.5 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs font-bold text-destructive"
               >
                 <XCircle className="h-3.5 w-3.5" />
@@ -310,7 +309,7 @@ function RestaurantOrdersManagementPanel() {
               <button
                 type="button"
                 onClick={() => updateRestaurantOrder(order.id, "ready_for_pickup", "تم وضع الطلب كجاهز للاستلام")}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs font-bold text-emerald-500"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-cyan/40 bg-cyan/10 px-3 py-2 text-xs font-bold text-cyan"
               >
                 <PackageCheck className="h-3.5 w-3.5" />
                 جاهز للاستلام
@@ -332,8 +331,16 @@ function RestaurantOrdersManagementPanel() {
         />
 
         <RestaurantOrderSection
+          title="الطلبات المرفوضة"
+          description="طلبات رفضها المطعم وتم إلغاؤها قبل بدء التحضير."
+          orders={rejectedOrders}
+          emptyText="لا توجد طلبات مرفوضة بعد."
+          actions={() => null}
+        />
+
+        <RestaurantOrderSection
           title="الطلبات المكتملة"
-          description="طلبات تم تسليمها بواسطة السائق أو تم رفضها من المطعم."
+          description="طلبات تم تسليمها بواسطة السائق. تظهر هنا للمتابعة فقط دون أي إجراء من المطعم."
           orders={completedOrders}
           emptyText="لا توجد طلبات مكتملة بعد."
           actions={() => null}
@@ -432,14 +439,15 @@ function restaurantOrderStatusLabel(status: Order["status"]) {
       return "قيد التحضير";
     case "ready_for_pickup":
       return "جاهز للاستلام";
+    case "picked_up":
+      return "تم الاستلام بواسطة السائق";
     case "on_the_way":
       return "مع السائق";
+    case "completed":
     case "delivered":
       return "مكتمل";
-    case "rejected":
-      return "مرفوض";
     case "cancelled":
-      return "ملغي";
+      return "مرفوض";
     default:
       return status;
   }
@@ -448,15 +456,19 @@ function restaurantOrderStatusLabel(status: Order["status"]) {
 function restaurantOrderStatusClass(status: Order["status"]) {
   switch (status) {
     case "pending":
-      return "bg-primary/15 text-primary";
+      return "bg-yellow-500/15 text-yellow-600";
     case "accepted":
+      return "bg-cyan/15 text-cyan";
     case "preparing":
-      return "bg-amber/15 text-amber";
+      return "bg-orange-500/15 text-orange-500";
     case "ready_for_pickup":
       return "bg-cyan/15 text-cyan";
+    case "picked_up":
+    case "on_the_way":
+      return "bg-purple-500/15 text-purple-500";
+    case "completed":
     case "delivered":
       return "bg-emerald-500/15 text-emerald-500";
-    case "rejected":
     case "cancelled":
       return "bg-destructive/15 text-destructive";
     default:

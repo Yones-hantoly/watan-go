@@ -1,9 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { DashboardShell, StatCard } from "@/components/dashboard-shell";
-import { Car, UtensilsCrossed, Store, MapPin, Clock, Navigation } from "lucide-react";
+import { Car, CheckCircle2, UtensilsCrossed, Store, MapPin, Clock, Navigation } from "lucide-react";
 import { getOrders, subscribeToOrders, type Order } from "@/lib/commerce";
+import { DELIVERY_STAGES, getOrderDeliveryStage, isFinalDeliveryStage } from "@/lib/delivery-flow";
 import { getRideOrders, subscribeToRideOrders, type RideOrder, RIDE_STATUS_LABELS, RIDE_STATUS_COLORS } from "@/lib/ride-orders";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/dashboard/customer")({
   component: () => (
@@ -31,7 +33,7 @@ function CustomerDashboard({ user }: { user: { name: string; phone: string } }) 
     };
   }, [user.phone]);
 
-  const deliveredOrders = orders.filter((order) => order.status === "delivered");
+  const deliveredOrders = orders.filter((order) => order.status === "completed" || order.status === "delivered");
 
   return (
         <div className="space-y-8">
@@ -62,14 +64,19 @@ function CustomerDashboard({ user }: { user: { name: string; phone: string } }) 
               {orders.length === 0 ? (
                 <div className="py-4 text-sm text-muted-foreground">لا توجد طلبات بعد.</div>
               ) : orders.map((o) => (
-                <div key={o.id} className="flex items-center justify-between py-3">
-                  <div>
+                <div key={o.id} className="py-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
                     <div className="font-medium">{o.vendorName}</div>
                     <div className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
                       <Clock className="h-3 w-3" /> {o.id} · {o.total} شيكل
                     </div>
+                    </div>
+                    <span className={cn("shrink-0 rounded-full px-3 py-1 text-xs font-semibold", customerStatusClass(o.status))}>
+                      {customerStatusLabel(o.status)}
+                    </span>
                   </div>
-                  <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">{o.status}</span>
+                  <CustomerOrderTracking order={o} />
                 </div>
               ))}
             </div>
@@ -117,6 +124,65 @@ function CustomerDashboard({ user }: { user: { name: string; phone: string } }) 
           </section>
         </div>
   );
+}
+
+function CustomerOrderTracking({ order }: { order: Order }) {
+  if (order.status === "pending" || order.status === "cancelled") {
+    return (
+      <div className="mt-3 rounded-xl border border-border bg-secondary/20 p-3 text-xs font-semibold text-muted-foreground">
+        {order.status === "pending" ? "طلب جديد بانتظار المراجعة" : "تم إلغاء الطلب"}
+      </div>
+    );
+  }
+
+  const activeStage = getOrderDeliveryStage(order);
+  const activeIndex = DELIVERY_STAGES.findIndex((step) => step.id === activeStage);
+  const final = isFinalDeliveryStage(activeStage);
+
+  return (
+    <div className="mt-4 grid gap-2 sm:grid-cols-3 lg:grid-cols-6">
+      {DELIVERY_STAGES.map((step, index) => {
+        const done = activeIndex > index || final;
+        const current = activeIndex === index && !final;
+        return (
+          <div
+            key={step.id}
+            className={cn(
+              "rounded-xl border px-3 py-2 text-xs font-bold transition",
+              done && "border-emerald-500/30 bg-emerald-500/10 text-emerald-500",
+              current && "border-primary bg-primary text-primary-foreground shadow-sm",
+              !done && !current && "border-border bg-secondary/20 text-muted-foreground",
+            )}
+          >
+            <div className="flex items-center gap-1.5">
+              {done && <CheckCircle2 className="h-3.5 w-3.5" />}
+              <span>{step.label}</span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function customerStatusLabel(status: Order["status"]) {
+  if (status === "pending") return "بانتظار المراجعة";
+  if (status === "accepted") return "تم قبول الطلب";
+  if (status === "preparing") return "قيد التجهيز";
+  if (status === "ready_for_pickup") return "جاهز للاستلام";
+  if (status === "picked_up") return "تم الاستلام";
+  if (status === "on_the_way") return "في الطريق";
+  if (status === "completed" || status === "delivered") return "تم التسليم";
+  return "ملغي";
+}
+
+function customerStatusClass(status: Order["status"]) {
+  if (status === "pending") return "bg-yellow-500/15 text-yellow-600";
+  if (status === "preparing") return "bg-orange-500/15 text-orange-500";
+  if (status === "ready_for_pickup" || status === "accepted") return "bg-cyan/15 text-cyan";
+  if (status === "picked_up" || status === "on_the_way") return "bg-purple-500/15 text-purple-500";
+  if (status === "completed" || status === "delivered") return "bg-emerald-500/15 text-emerald-500";
+  return "bg-destructive/15 text-destructive";
 }
 
 function ServiceCard({ to, icon, title, desc, color }: { to: string; icon: React.ReactNode; title: string; desc: string; color: string }) {

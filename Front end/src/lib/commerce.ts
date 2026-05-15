@@ -7,9 +7,11 @@ export type OrderStatus =
   | "accepted"
   | "preparing"
   | "ready_for_pickup"
+  | "picked_up"
   | "on_the_way"
+  | "completed"
+  /** @deprecated Legacy localStorage value kept readable and normalized on update. */
   | "delivered"
-  | "rejected"
   | "cancelled";
 
 export interface CartItem {
@@ -36,7 +38,7 @@ export interface Order {
   total: number;
   deliveryAddress: string;
   status: OrderStatus;
-  driverStatus: "pending" | "accepted" | "picked_up" | "delivered";
+  driverStatus: "pending" | "accepted" | "picked_up" | "on_the_way" | "completed" | "delivered";
   driverName?: string;
   driverPhone?: string;
   deliveryStage?: DeliveryStage;
@@ -220,15 +222,16 @@ export function createOrder(user: AuthUser, deliveryAddress: string) {
 
 export function updateOrderStatus(orderId: string, status: OrderStatus) {
   const now = new Date().toISOString();
+  const nextStatus = normalizeOrderStatus(status);
   saveOrders(
     getOrders().map((order) =>
       order.id === orderId
         ? {
             ...order,
-            status,
-            deliveryStage: status === "delivered" ? "delivered" : order.deliveryStage,
+            status: nextStatus,
+            deliveryStage: statusToDeliveryStage(nextStatus, order.deliveryStage),
             updatedAt: now,
-            completedAt: status === "delivered" ? now : order.completedAt,
+            completedAt: nextStatus === "completed" ? now : order.completedAt,
           }
         : order,
     ),
@@ -241,23 +244,52 @@ export function updateDriverStatus(
   driver?: Pick<AuthUser, "name" | "phone">,
 ) {
   const now = new Date().toISOString();
+  const nextDriverStatus = normalizeDriverStatus(driverStatus);
   saveOrders(
     getOrders().map((order) =>
       order.id === orderId
         ? {
             ...order,
-            driverStatus,
+            driverStatus: nextDriverStatus,
             deliveryStage:
-              driverStatus === "accepted" ? "accepted" :
-              driverStatus === "picked_up" ? "picked_up" :
-              driverStatus === "delivered" ? "delivered" :
+              nextDriverStatus === "accepted" ? "ready_for_pickup" :
+              nextDriverStatus === "picked_up" ? "picked_up" :
+              nextDriverStatus === "on_the_way" ? "on_the_way" :
+              nextDriverStatus === "completed" ? "completed" :
               order.deliveryStage,
             driverName: driver?.name ?? order.driverName,
             driverPhone: driver?.phone ?? order.driverPhone,
+            status:
+              nextDriverStatus === "picked_up" ? "picked_up" :
+              nextDriverStatus === "on_the_way" ? "on_the_way" :
+              nextDriverStatus === "completed" ? "completed" :
+              order.status,
             updatedAt: now,
-            completedAt: driverStatus === "delivered" ? now : order.completedAt,
+            completedAt: nextDriverStatus === "completed" ? now : order.completedAt,
           }
         : order,
     ),
   );
+}
+
+export function normalizeOrderStatus(status: OrderStatus): OrderStatus {
+  return status === "delivered" ? "completed" : status;
+}
+
+export function normalizeDriverStatus(status: Order["driverStatus"]): Order["driverStatus"] {
+  return status === "delivered" ? "completed" : status;
+}
+
+function statusToDeliveryStage(status: OrderStatus, currentStage?: DeliveryStage): DeliveryStage | undefined {
+  if (
+    status === "accepted" ||
+    status === "preparing" ||
+    status === "ready_for_pickup" ||
+    status === "picked_up" ||
+    status === "on_the_way" ||
+    status === "completed"
+  ) {
+    return status;
+  }
+  return currentStage;
 }

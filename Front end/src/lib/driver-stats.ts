@@ -51,7 +51,7 @@ export function deriveDriverStats(params: {
     todayTripsCount: acceptedRides.length + acceptedCommerceOrders.length + acceptedDriverOrders.length,
     hasActiveRide:
       todayRides.some((ride) => ride.status === "accepted" || ride.status === "driver_assigned" || ride.status === "on_the_way") ||
-      todayCommerceOrders.some((order) => order.driverStatus === "accepted" || order.driverStatus === "picked_up") ||
+      todayCommerceOrders.some((order) => order.driverStatus === "accepted" || order.driverStatus === "picked_up" || order.driverStatus === "on_the_way") ||
       params.driverOrders.some((order) => order.status === "active"),
     todayNetEarnings: netAfterCommission(
       acceptedRides.reduce((sum, ride) => sum + (ride.price ?? 0), 0) +
@@ -80,7 +80,7 @@ function isAcceptedRide(status: RideOrder["status"]) {
 }
 
 function isAcceptedCommerceOrder(status: CommerceOrder["driverStatus"]) {
-  return status === "accepted" || status === "picked_up" || status === "delivered";
+  return status === "accepted" || status === "picked_up" || status === "on_the_way" || status === "completed" || status === "delivered";
 }
 
 function netAfterCommission(amount: number) {

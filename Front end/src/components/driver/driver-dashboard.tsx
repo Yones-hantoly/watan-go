@@ -42,12 +42,15 @@ interface DriverDashboardProps {
 
 type DrawerKind = "trips" | "earnings" | "rating" | "hours" | "order" | null;
 
+const isCompletedCommerceOrder = (order: CommerceOrder) => order.status === "completed" || order.status === "delivered";
+const isReadyForDriverPickup = (order: CommerceOrder) => order.status === "ready_for_pickup" && order.driverStatus === "pending";
+
 export function DriverDashboard({ user, onLogout }: DriverDashboardProps) {
   const [activeView, setActiveView] = useState<DriverView>("dashboard");
   const [driverStatus, setDriverStatus] = useState<DriverStatus>(() => getDriverStatus(user.phone));
   const [orders, setOrders] = useState(mockOrders);
   const [deliveryOrders, setDeliveryOrders] = useState<CommerceOrder[]>(() =>
-    getOrders().filter((o) => o.status !== "delivered" && o.status !== "cancelled"),
+    getOrders().filter(isReadyForDriverPickup),
   );
   const [allDeliveryOrders, setAllDeliveryOrders] = useState<CommerceOrder[]>(() => getOrders());
   const [rideOrders, setRideOrders] = useState<RideOrder[]>([]);
@@ -84,7 +87,7 @@ export function DriverDashboard({ user, onLogout }: DriverDashboardProps) {
     const load = () => {
       const nextOrders = getOrders();
       setAllDeliveryOrders(nextOrders);
-      setDeliveryOrders(nextOrders.filter((o) => o.status !== "delivered" && o.status !== "cancelled"));
+      setDeliveryOrders(nextOrders.filter(isReadyForDriverPickup));
     };
     load();
     return subscribeToOrders(load);
@@ -157,8 +160,9 @@ export function DriverDashboard({ user, onLogout }: DriverDashboardProps) {
 
   const updateDeliveryOrder = (orderId: string, ds: CommerceOrder["driverStatus"], message: string) => {
     updateDriverStatus(orderId, ds, user);
-    if (ds === "accepted") updateOrderStatus(orderId, "accepted");
-    if (ds === "delivered") updateOrderStatus(orderId, "delivered");
+    if (ds === "picked_up") updateOrderStatus(orderId, "picked_up");
+    if (ds === "on_the_way") updateOrderStatus(orderId, "on_the_way");
+    if (ds === "completed" || ds === "delivered") updateOrderStatus(orderId, "completed");
     toast.success(message);
   };
 
@@ -216,8 +220,8 @@ export function DriverDashboard({ user, onLogout }: DriverDashboardProps) {
       return;
     }
 
-    updateDeliveryOrder(orderId, "accepted", "تم قبول مهمة التوصيل");
-    setOrderDeliveryStage(orderId, "accepted");
+    updateDeliveryOrder(orderId, "picked_up", "تم استلام الطلب بواسطة السائق");
+    setOrderDeliveryStage(orderId, "picked_up");
     const o = getOrders().find((x) => x.id === orderId);
     if (o) {
       setActiveTracking({
@@ -263,7 +267,7 @@ export function DriverDashboard({ user, onLogout }: DriverDashboardProps) {
     if (activeTracking) {
       const isRide = getRideOrders().some((o) => o.id === activeTracking.id);
       if (isRide) updateRideStatus(activeTracking.id, "completed");
-      else setOrderDeliveryStage(activeTracking.id, "delivered");
+      else setOrderDeliveryStage(activeTracking.id, "completed");
     }
     if (driverStatus !== "online") setActiveTracking(null);
     toast.success("تم إنهاء التوصيل بنجاح");
@@ -322,7 +326,7 @@ export function DriverDashboard({ user, onLogout }: DriverDashboardProps) {
                     notifications={notifications}
                     deliveryOrders={deliveryOrders}
                     onAcceptDelivery={handleAcceptDelivery}
-                    onCompleteDelivery={(id) => updateDeliveryOrder(id, "delivered", "تم تسليم الطلب")}
+                    completedDeliveryOrders={allDeliveryOrders.filter(isCompletedCommerceOrder)}
                     rideOrders={rideOrders}
                     onAcceptRide={handleAcceptRide}
                     onRejectRide={handleRejectRide}
@@ -397,7 +401,7 @@ function DashboardHome({
   stats, dailyEarnings, isLoading, driverStatus, onStatusChange,
   onOpenDrawer, onGoOrders, onGoEarnings,
   notifications,
-  deliveryOrders, onAcceptDelivery,
+  deliveryOrders, completedDeliveryOrders, onAcceptDelivery,
   rideOrders, onAcceptRide, onRejectRide, onCompleteRide,
 }: {
   stats: DriverStats;
@@ -410,8 +414,8 @@ function DashboardHome({
   onGoEarnings: () => void;
   notifications: DriverNotification[];
   deliveryOrders: CommerceOrder[];
+  completedDeliveryOrders: CommerceOrder[];
   onAcceptDelivery: (id: string) => void;
-  onCompleteDelivery: (id: string) => void;
   rideOrders: RideOrder[];
   onAcceptRide: (id: string) => void;
   onRejectRide: (id: string) => void;
@@ -524,7 +528,7 @@ function DashboardHome({
       {/* ── Delivery tasks ── */}
       <section className="rounded-2xl border border-white/10 bg-surface/85 p-5">
         <div className="mb-4 flex items-center justify-between gap-3">
-          <h3 className="font-display text-lg font-bold">مهام توصيل من الطلبات الجديدة</h3>
+          <h3 className="font-display text-lg font-bold">طلبات جاهزة للاستلام</h3>
           <span className="rounded-full bg-cyan/10 px-3 py-1 text-xs font-bold text-cyan">{deliveryOrders.length}</span>
         </div>
         <div className="space-y-3">
@@ -534,10 +538,40 @@ function DashboardHome({
             <div key={order.id} className="flex flex-col gap-3 rounded-2xl border border-border bg-secondary/20 p-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="font-bold">{order.vendorName}</p>
-                <p className="mt-1 text-sm text-muted-foreground">{order.deliveryAddress} · {order.total} شيكل</p>
+                <p className="mt-1 text-sm text-muted-foreground">{order.deliveryAddress} · {order.total} شيكل · {order.id}</p>
               </div>
               <div className="flex gap-2">
-                <button onClick={() => onAcceptDelivery(order.id)} className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground">قبول والتوجه</button>
+                <button onClick={() => onAcceptDelivery(order.id)} className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground">استلام الطلب</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-white/10 bg-surface/85 p-5">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h3 className="font-display text-lg font-bold">الطلبات المكتملة</h3>
+          <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-500">{completedDeliveryOrders.length}</span>
+        </div>
+        <div className="space-y-3">
+          {completedDeliveryOrders.length === 0 ? (
+            <div className="text-sm text-muted-foreground">لا توجد طلبات مكتملة بعد.</div>
+          ) : completedDeliveryOrders.map((order) => (
+            <div key={order.id} className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-mono text-sm font-bold text-emerald-500">{order.id}</span>
+                    <span className="rounded-full bg-emerald-500/15 px-2.5 py-1 text-[11px] font-bold text-emerald-500">مكتمل</span>
+                  </div>
+                  <p className="mt-2 text-sm font-semibold">{order.user.name}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{order.items.map((item) => `${item.name} × ${item.quantity}`).join("، ")}</p>
+                </div>
+                <div className="text-sm sm:text-left">
+                  <p className="font-display font-bold text-primary">{order.total} شيكل</p>
+                  <p className="mt-1 text-xs text-muted-foreground">وقت التوصيل: {formatDriverOrderDuration(order)}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{formatDriverOrderTime(order.completedAt ?? order.updatedAt)}</p>
+                </div>
               </div>
             </div>
           ))}
@@ -545,6 +579,26 @@ function DashboardHome({
       </section>
     </div>
   );
+}
+
+function formatDriverOrderDuration(order: CommerceOrder) {
+  const end = new Date(order.completedAt ?? order.updatedAt).getTime();
+  const start = new Date(order.createdAt).getTime();
+  if (Number.isNaN(end) || Number.isNaN(start) || end <= start) return "غير متاح";
+  return `${Math.max(1, Math.round((end - start) / 60000))} دقيقة`;
+}
+
+function formatDriverOrderTime(value: string) {
+  try {
+    return new Intl.DateTimeFormat("ar", {
+      hour: "2-digit",
+      minute: "2-digit",
+      day: "2-digit",
+      month: "short",
+    }).format(new Date(value));
+  } catch {
+    return value;
+  }
 }
 
 function DriverStatusSelector({ status, onChange }: { status: DriverStatus; onChange: (status: DriverStatus) => void }) {

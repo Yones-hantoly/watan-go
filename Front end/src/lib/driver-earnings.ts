@@ -45,7 +45,7 @@ export function getDailyDriverEarnings(params: {
   const deliveryItems: DriverEarningItem[] = params.orders
     .filter((order) =>
       order.driverPhone === params.driverPhone &&
-      (order.status === "delivered" || order.driverStatus === "delivered") &&
+      (order.status === "completed" || order.status === "delivered" || order.driverStatus === "completed" || order.driverStatus === "delivered") &&
       isToday(order.completedAt ?? order.updatedAt, now),
     )
     .map((order) => ({

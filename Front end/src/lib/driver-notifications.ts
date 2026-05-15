@@ -70,7 +70,8 @@ function getRideStatusMessage(ride: RideOrder) {
 function getOrderStatusMessage(order: CommerceOrder) {
   if (order.driverStatus === "accepted") return `تم قبول توصيل الطلب ${order.id}.`;
   if (order.driverStatus === "picked_up") return `تم استلام الطلب ${order.id}.`;
-  if (order.driverStatus === "delivered") return `تم تسليم الطلب ${order.id} للعميل.`;
+  if (order.driverStatus === "on_the_way") return `الطلب ${order.id} في الطريق إلى العميل.`;
+  if (order.driverStatus === "completed" || order.driverStatus === "delivered") return `تم تسليم الطلب ${order.id} للعميل.`;
   return null;
 }
 
@@ -100,12 +101,12 @@ export async function getDriverNotifications(
     });
 
   orders
-    .filter((order) => order.status === "pending" && order.driverStatus === "pending" && isToday(order.createdAt))
+    .filter((order) => order.status === "ready_for_pickup" && order.driverStatus === "pending" && isToday(order.createdAt))
     .forEach((order) => {
       notifications.push({
         id: `nearby-order-${order.id}`,
         type: "nearby",
-        message: `طلب جديد قريب منك في ${extractCity(order.vendorName)}`,
+        message: `طلب جاهز للاستلام من ${extractCity(order.vendorName)}`,
         createdAt: order.createdAt,
       });
     });
