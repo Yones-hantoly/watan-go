@@ -77,6 +77,17 @@ function CustomerDashboard({ user }: { user: { name: string; phone: string } }) 
                     </span>
                   </div>
                   <CustomerOrderTracking order={o} />
+                  {o.status !== "cancelled" && (
+                    <div className="mt-3">
+                      <Link
+                        to="/orders/$id/tracking"
+                        params={{ id: o.id }}
+                        className="inline-flex rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground transition hover:bg-primary/90"
+                      >
+                        تتبع الطلب
+                      </Link>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

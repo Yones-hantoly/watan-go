@@ -31,6 +31,7 @@ import { Route as DashboardRestaurantRouteImport } from './routes/dashboard.rest
 import { Route as DashboardDriverRouteImport } from './routes/dashboard.driver'
 import { Route as DashboardCustomerRouteImport } from './routes/dashboard.customer'
 import { Route as DashboardAdminRouteImport } from './routes/dashboard.admin'
+import { Route as OrdersIdTrackingRouteImport } from './routes/orders.$id.tracking'
 import { Route as DashboardRestaurantOrdersRouteImport } from './routes/dashboard.restaurant.orders'
 import { Route as DashboardRestaurantMenuRouteImport } from './routes/dashboard.restaurant.menu'
 
@@ -144,6 +145,11 @@ const DashboardAdminRoute = DashboardAdminRouteImport.update({
   path: '/dashboard/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OrdersIdTrackingRoute = OrdersIdTrackingRouteImport.update({
+  id: '/orders/$id/tracking',
+  path: '/orders/$id/tracking',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DashboardRestaurantOrdersRoute =
   DashboardRestaurantOrdersRouteImport.update({
     id: '/orders',
@@ -181,6 +187,7 @@ export interface FileRoutesByFullPath {
   '/restaurants/$id': typeof RestaurantsIdRoute
   '/dashboard/restaurant/menu': typeof DashboardRestaurantMenuRoute
   '/dashboard/restaurant/orders': typeof DashboardRestaurantOrdersRoute
+  '/orders/$id/tracking': typeof OrdersIdTrackingRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -207,6 +214,7 @@ export interface FileRoutesByTo {
   '/restaurants/$id': typeof RestaurantsIdRoute
   '/dashboard/restaurant/menu': typeof DashboardRestaurantMenuRoute
   '/dashboard/restaurant/orders': typeof DashboardRestaurantOrdersRoute
+  '/orders/$id/tracking': typeof OrdersIdTrackingRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -234,6 +242,7 @@ export interface FileRoutesById {
   '/restaurants/$id': typeof RestaurantsIdRoute
   '/dashboard/restaurant/menu': typeof DashboardRestaurantMenuRoute
   '/dashboard/restaurant/orders': typeof DashboardRestaurantOrdersRoute
+  '/orders/$id/tracking': typeof OrdersIdTrackingRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -262,6 +271,7 @@ export interface FileRouteTypes {
     | '/restaurants/$id'
     | '/dashboard/restaurant/menu'
     | '/dashboard/restaurant/orders'
+    | '/orders/$id/tracking'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -288,6 +298,7 @@ export interface FileRouteTypes {
     | '/restaurants/$id'
     | '/dashboard/restaurant/menu'
     | '/dashboard/restaurant/orders'
+    | '/orders/$id/tracking'
   id:
     | '__root__'
     | '/'
@@ -314,6 +325,7 @@ export interface FileRouteTypes {
     | '/restaurants/$id'
     | '/dashboard/restaurant/menu'
     | '/dashboard/restaurant/orders'
+    | '/orders/$id/tracking'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -338,6 +350,7 @@ export interface RootRouteChildren {
   DashboardRestaurantRoute: typeof DashboardRestaurantRouteWithChildren
   DashboardShopRoute: typeof DashboardShopRoute
   MenuRestaurantSlugRoute: typeof MenuRestaurantSlugRoute
+  OrdersIdTrackingRoute: typeof OrdersIdTrackingRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -496,6 +509,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardAdminRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/orders/$id/tracking': {
+      id: '/orders/$id/tracking'
+      path: '/orders/$id/tracking'
+      fullPath: '/orders/$id/tracking'
+      preLoaderRoute: typeof OrdersIdTrackingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/dashboard/restaurant/orders': {
       id: '/dashboard/restaurant/orders'
       path: '/orders'
@@ -560,6 +580,7 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRestaurantRoute: DashboardRestaurantRouteWithChildren,
   DashboardShopRoute: DashboardShopRoute,
   MenuRestaurantSlugRoute: MenuRestaurantSlugRoute,
+  OrdersIdTrackingRoute: OrdersIdTrackingRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
